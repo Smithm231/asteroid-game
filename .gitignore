@@ -1,0 +1,7 @@
+/bin/
+/dist/
+*.exe
+*.test
+*.prof
+/shots/
+.DS_Store

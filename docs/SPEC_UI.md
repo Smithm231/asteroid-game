@@ -1,6 +1,10 @@
-# DRIFTHOLD — Presentation Specification (graphics, input, UI toolkit, audio) v1
+# DRIFTHOLD — Presentation Design Notes (graphics, input, UI toolkit, audio)
 
-Read `SPEC_GAME.md` (same directory) first; its section 0 ground rules apply here too.
+Design notes for the presentation layer. The toolkit that was finally built
+(`internal/ui/kit`) is a leaner immediate-mode kit than section 6 sketches; the
+visual identity in section 1 is what the game follows.
+
+Read `SPEC_GAME.md` (same directory) first.
 Engine: Ebitengine `github.com/hajimehoshi/ebiten/v2 v2.10.6`. Read its source under
 `$(go env GOMODCACHE)/github.com/hajimehoshi/ebiten/v2@v2.10.6` whenever unsure of an API
 (`vector`, `text/v2`, `audio`, `inpututil`). Do not use deprecated functions.

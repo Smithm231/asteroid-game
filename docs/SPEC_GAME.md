@@ -1,37 +1,23 @@
-# DRIFTHOLD — Game & Simulation Specification (v1)
+# DRIFTHOLD — Game & Simulation Design Notes
+
+These are the design notes the game was built from, kept up to date with the
+balance changes made during self-play testing. The authoritative numbers are the
+content tables in `internal/model`.
 
 Drifthold is an ORIGINAL real-time colony-building strategy game for Windows 11 (native .exe),
-written in Go with Ebitengine v2.10.6. Repository root: `/home/user/drifthold` (module `drifthold`).
+written in Go with Ebitengine v2.10.6. (module `drifthold`).
 
-## 0. Ground rules for every contributor
+## 0. Principles
 
-* **Originality.** Everything here is an original design. Never reference, imitate or borrow names,
-  art, text, UI layout or data from any existing commercial game. Do not mention other games in
-  code, comments, docs or commit messages. Use only the names defined in this spec.
-* **Work only inside `/home/user/drifthold`.** Never touch `/home/user/Pc-alt-ai-mode`.
-  Do NOT run `git commit`/`git add`/any git write command — the coordinator commits.
-* **Own your files.** Each task names the package directory you own. Create/modify files only
-  there. Every other package is read-only for you. If you need something that another package
-  lacks, implement a private helper in your own package and list it under "wishlist" in your final
-  report — do not edit the other package.
-* **Determinism.** The simulation (`internal/model` and every system package) must be fully
-  deterministic: no `time.Now`, no `math/rand` globals, no goroutines, no iteration over Go maps
-  whose order affects results (sort keys first). All randomness comes from `w.RNG`.
-  The same seed + the same command stream must produce byte-identical saves.
-* **Plain data.** Everything reachable from `model.World` must round-trip through
-  `encoding/json` (no funcs, channels, interfaces, cyclic pointers, or maps with non-string keys).
-  Cross references use IDs, never pointers.
-* **Sim packages never import Ebitengine** (model, worldgen, economy, construct, fleet, combat,
-  research, events, market, directives, ai, sim, save). They must build with `CGO_ENABLED=0`.
-* **Quality bar.** `gofmt`-clean, `go vet` clean, meaningful table-driven tests in each package,
-  doc comments on every exported identifier. No TODO stubs, no placeholder logic, no panics on bad
-  input from commands (return errors instead).
-* **Verify APIs against source, not memory.** Third-party source lives in
-  `$(go env GOMODCACHE)` (e.g. `github.com/hajimehoshi/ebiten/v2@v2.10.6`). Read it when unsure.
-  Avoid deprecated Ebitengine APIs.
-* Build/test only your own package (`go build ./internal/<pkg>/... && go vet ./internal/<pkg>/... &&
-  go test ./internal/<pkg>/...`). Other packages may be mid-edit by other contributors; if a
-  compile error is in a file you do not own, do not fix it — re-run a little later or report it.
+* **Originality.** Everything here is an original design.
+* **Determinism.** The simulation is fully deterministic: no clock, no global
+  random numbers, no goroutines, no iteration over Go maps where order matters.
+  All randomness comes from `World.RNG`. The same seed and the same commands
+  always produce the same game.
+* **Plain data.** Everything reachable from `model.World` round-trips through
+  `encoding/json`; cross references use IDs, never pointers.
+* **The rules never touch graphics.** `model`, `sim`, `ai` and `save` do not
+  import the engine and build without cgo.
 
 ## 1. Fiction (all original)
 
@@ -119,7 +105,7 @@ All evaluated per colony each economy step (dt = 1 s), in this order:
 5. **Production** (see table) scaled by `Eff × dt/60 × tech multipliers`, limited by available
    inputs and by free storage for outputs (if either is lacking the building idles for the step and
    consumes nothing).
-6. **Life support**: colonists eat 0.5 Food and use 0.2 Ice per colonist per cycle.
+6. **Life support**: colonists eat 0.5 Food and use 0.1 Ice per colonist per cycle.
    `Starving` = Food would go below 0 (clamp to 0). `Suffocating` = Ice at 0 or life-support
    capacity < floor(Pop).
 7. **Morale** (0..100) drifts toward a target at 0.5 points per second. Target = 55
@@ -154,22 +140,22 @@ Cat = category (palette tab & priority rank).
 
 | Kind (const) | Display name | Cat | Cost | Build s | Power | Staff | HP | Unlock | Function |
 |---|---|---|---|---|---|---|---|---|---|
-| Keystone | Keystone | Core | — | — | +20 | 0 | 1200 | — | Colony command. Housing 12, life support 12, storage 400, 4 berths, sensor 260 u, reveals deposits within 3 hexes on founding. Its loss ends the colony. |
+| Keystone | Keystone | Core | — | — | +20 | 0 | 1200 | — | Colony command. Housing 12, life support 12, storage 400, 6 berths, sensor 260 u, reveals deposits within 3 hexes on founding, reclaims 4 Alloy per cycle (so a colony can always recover). Its loss ends the colony. |
 | Conduit | Conduit | Core | A4 | 3 | 0 | 0 | 60 | start | Cheap connector tile for extending the buildable area. |
 | Silo | Silo | Core | A30 S10 | 15 | −1 | 0 | 300 | start | +300 storage for every good. |
 | SurveyMast | Survey Mast | Core | A15 S5 | 12 | −2 | 1 | 100 | start | Reveals deposits within 4 hexes (+bonus), one nearest hidden tile every 1.5 s × Eff. |
-| Sunvane | Sunvane | Power | A20 S15 | 15 | +12 × solar | 0 | 120 | start | Solar collector. |
+| Sunvane | Sunvane | Power | A20 S15 | 15 | +16 × solar | 0 | 120 | start | Solar collector. |
 | ThermalStack | Thermal Stack | Power | A60 S20 P10 | 30 | +45 | 2 | 250 | Volatile Cracking | Burns 6 Fuel/cycle. |
 | LumenCore | Lumen Core | Power | A150 P60 L20 | 60 | +160 | 4 | 400 | Lumen Fusion | Burns 0.5 Lumen/cycle. |
 | Habitat | Habitat | Life | A30 S30 | 20 | −3 | 0 | 200 | start | Housing 16. |
 | Aerator | Aerator | Life | A25 S10 | 18 | −5 | 1 | 150 | start | Life support for 24 colonists. |
-| Greenhouse | Greenhouse | Life | A20 S40 | 25 | −6 | 2 | 140 | start | +14 Food/cycle, uses 2 Ice/cycle. |
+| Greenhouse | Greenhouse | Life | A20 S40 | 25 | −6 | 2 | 140 | start | +14 Food/cycle, uses 1 Ice/cycle. |
 | Commons | Commons | Life | A40 S40 P5 | 30 | −4 | 2 | 180 | Civic Planning | Morale: covers 40 colonists. |
 | BoreRig | Bore Rig | Industry | A35 | 20 | −8 | 3 | 220 | start | Mines 36 units/cycle total from deposits on its own tile and the 6 neighbours (split evenly between the deposit tiles that still have material; several rigs may share a tile). |
 | Smelter | Smelter | Industry | A50 S20 | 30 | −14 | 3 | 260 | start | 30 Ore → 20 Alloy per cycle. |
 | Cracker | Cracker | Industry | A45 S15 P5 | 30 | −10 | 2 | 220 | Volatile Cracking | 20 Ice → 16 Fuel per cycle. |
 | Fabricator | Fabricator | Industry | A70 S30 | 40 | −16 | 4 | 260 | Fabrication | 12 Alloy + 8 Silica → 8 Parts per cycle. |
-| Laboratory | Laboratory | Science | A60 S40 P10 | 45 | −12 | 4 | 200 | start | +6 research points/cycle. |
+| Laboratory | Laboratory | Science | A60 S40 P10 | 45 | −12 | 4 | 200 | start | +12 research points/cycle. |
 | LaunchCradle | Launch Cradle | Space | A120 S40 P30 | 60 | −15 | 4 | 400 | Orbital Flight | Shipyard with a build queue (max 5 queued). |
 | DockRing | Dock Ring | Space | A80 P20 | 40 | −6 | 2 | 300 | Dock Engineering | +6 berths; friendly ships in orbit repair 2 HP/s per ring × Eff. |
 | ExchangeDock | Exchange Dock | Space | A60 S30 P15 | 40 | −5 | 2 | 250 | Charter Trade | Enables market trading and settler sponsorship at this rock. |
@@ -195,7 +181,7 @@ Smelter, Laboratory.
 | Hammer | Hammer | Medium | A70 P25 | 45 | 2 | 120 | 6 | 2 | 22 | 0.025 | Siege Doctrine | Bomber. |
 | Bulwark | Bulwark | Heavy | A180 P60 L15 | 100 | 4 | 600 | 4 | 22 | 12 | 0.050 | Capital Hulls | Heavy frigate. |
 
-* **Berths**: faction capacity = Σ over owned rocks (4 per Keystone + 6 per active Dock Ring).
+* **Berths**: faction capacity = Σ over owned rocks (6 per Keystone + 6 per active Dock Ring).
   Ships in existence + ships queued may not exceed it. Queuing a ship deducts its cost from the
   cradle's colony stock (refunded 100 % on cancel).
 * A **Fleet** is a set of ships sharing a location and an order. Each faction has at most one
@@ -262,7 +248,7 @@ Runs every tick at every rock where mutually hostile parties are present
 
 ## 9. Research
 
-Per faction: research points per cycle = Σ Laboratory (6 × Eff) × `Mods.ResearchMul`. Points flow
+Per faction: research points per cycle = Σ Laboratory (12 × Eff) × `Mods.ResearchMul`. Points flow
 into `Research.Current`; when cost is reached the tech is granted, its effects applied (unlocks,
 `Mods` recomputed), a log entry is written and the next queued tech starts. A Lumen price is paid
 when research on that tech *starts* (taken from the faction's rocks, richest first); if it cannot
@@ -342,56 +328,41 @@ Each has a short title, a one-sentence hint, a reward, and a pure predicate over
 `GameSettings{Seed uint64, BeltSize (Small/Medium/Large), Rivals int (1..3), Difficulty
 (Easy/Normal/Hard), PlayerName string, RivalKinds []Personality (optional; random if empty),
 Events bool, Directives bool}`.
-Every faction starts with one Keystone colony: Pop 14, Morale 60, stock Alloy 160, Silica 130,
-Ice 90, Fuel 30, Food 110, Parts 20, Ore 0, Lumen 0; Scrip 400; deposits within 3 hexes of the
-Keystone revealed. Faction 1 is the human player; factions 2.. are AI.
+Every faction starts with one Keystone colony: Pop 12, Morale 60, stock Alloy 260, Silica 180,
+Ice 90, Fuel 30, Food 110, Parts 20, Ore 0, Lumen 0; Scrip 400; deposits within 6 hexes of the
+Keystone revealed (the charter survey). Faction 1 is the human player; factions 2.. are AI.
 
 ## 14. Package architecture
 
 ```
-cmd/drifthold        main: window, ebiten.RunGame(app)            (Windows GUI subsystem)
-cmd/driftsim         headless runner: self-play, soak, balance stats (no Ebitengine)
-internal/model       ALL shared data types, content tables, hex math, RNG, stock & query helpers,
-                     command structs, log & FX event types. No game rules that need other packages.
-internal/worldgen    New(settings) (*model.World, error): belt, rocks, deposits, factions, start colonies
-internal/economy     Step(w): caches, staffing, power, production, mining, survey masts, life, morale,
-                     population, stipend, self-repair, mender hubs
-internal/construct   CanPlace/Place/Cancel/Demolish/Recommission/Expedite, SetEnabled/SetPriority,
-                     Step(w): construction progress
-internal/fleet       ship queue (cradles), berths, fleet split/merge, orders, movement, arrival
-                     handling (survey, colonize, haul routes, salvage pickup), dock repair, sensors
-internal/combat      Step(w): space & surface combat, aegis, mass drivers & slugs, colony fall,
-                     elimination & victory
-internal/research    Step(w), SetCurrent/Queue/Cancel, ApplyTech, RecomputeMods
-internal/market      Step(w), Trade, Sponsor, price queries
-internal/events      Step(w): random events
-internal/directives  Step(w), definitions & progress
-internal/ai          Step(w, faction): rival brains issuing commands like a player would
-internal/sim         Sim{W *model.World}; NewGame(settings); Step() runs one tick in the canonical
-                     order; Exec(cmd) dispatches commands to the owning system; Enqueue(cmd)
-internal/save        Save/Load (gzip JSON) + metadata, settings file, save directory resolution
-internal/audio       procedural synthesiser: SFX + generative ambient music (Ebitengine audio)
-internal/input       per-frame input snapshot abstraction + scripted input playback
-internal/gfx         theme, fonts/text, drawing primitives, procedural art (rocks, buildings, ships, icons)
-internal/ui/kit      immediate-mode widget toolkit
-internal/ui/...      screens & panels
-internal/app         application shell
+cmd/drifthold     the game (Windows GUI subsystem)
+cmd/driftsim      headless runner: self-play, soak, balance statistics
+internal/model    all shared data types, content tables, hex maths, RNG, commands, log and FX records
+internal/sim      the rules: world generation and every system (construction, economy, shipyards,
+                  fleets, combat, mass drivers, research, market, events, directives), the tick loop
+                  and the command dispatcher
+internal/ai       rival brains, acting only through commands like a player
+internal/save     save files (gzip JSON with a header line) and settings
+internal/audio    procedural synthesiser: sound effects and generative music
+internal/input    per-frame input snapshots and scripted input playback
+internal/gfx      theme, fonts/text, drawing primitives, starfield
+internal/art      procedural artwork: rocks, structures, ships, icons
+internal/ui/kit   immediate-mode widget toolkit
+internal/app      the application: screens, panels, windows
 ```
 
-Dependency rule: `model` imports only the standard library. System packages import `model` only
-(`ai` may additionally import `construct`, `fleet`, `research`, `market` query helpers; `sim`
-imports all systems). UI packages never mutate the world — they only read it and send
-`model.Command`s through the sim.
+The interface never mutates the world directly: it reads it and sends
+`model.Command`s through `sim.Exec`.
 
 ### Canonical tick order (`sim.Step`)
 
 1. Execute `w.Pending` commands in order (errors are logged to the issuing faction as Warn), clear.
-2. `fleet.Step` (movement, arrivals, routes, queues) — every tick.
-3. `combat.Step` — every tick.
-4. If `Tick % 10 == 0`: `construct.Step`, `economy.Step`, `research.Step`, `market.Step`,
-   `events.Step`, `directives.Step`.
-5. AI: for each living AI faction f, if `(Tick + 5·f) % 20 == 0`: `ai.Step(w, f)` (appends to
-   `w.Pending`).
+2. Fleets (movement, arrivals, routes) — every tick.
+3. Combat and mass-driver slugs — every tick.
+4. If `Tick % 10 == 0`: construction, economy, shipyards, mass drivers, research, market,
+   events, directives.
+5. AI: for each living AI faction f, if `(Tick + 5·f) % 20 == 0`: its brain thinks and
+   issues commands.
 6. `w.Tick++`.
 
 ### Commands (`model.Command`, one flat struct, `Kind` discriminates)

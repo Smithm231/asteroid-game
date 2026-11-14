@@ -21,6 +21,7 @@ const (
 	windowHolds
 	windowCodex
 	windowRoute
+	windowLog
 )
 
 // windowState is what the windows remember between frames.
@@ -80,6 +81,7 @@ func (g *Game) windowFrame(full gfx.Rect) {
 		windowHolds:    {"Holds of the Shoal", 820, 520, g.holdsWindow},
 		windowCodex:    {"Codex", 900, 600, g.codexWindow},
 		windowRoute:    {"Freight route", 560, 470, g.routeWindow},
+		windowLog:      {"Log", 700, 540, g.logWindow},
 	}
 	sp := specs[g.window]
 	r := full.Center(min(sp.w, full.W-20), min(sp.h, full.H-20))
@@ -454,6 +456,49 @@ func (g *Game) holdsWindow(r gfx.Rect) {
 	}
 }
 
+// ---------------------------------------------------------------------- log
+
+// logWindow lists the messages addressed to the player, newest first. Clicking
+// one that names a rock goes there.
+func (g *Game) logWindow(r gfx.Rect) {
+	ui, th := g.a.ui, g.a.th
+	var entries []model.LogEntry
+	for i := len(g.w.Log) - 1; i >= 0; i-- {
+		if e := g.w.Log[i]; e.VisibleTo(g.me) {
+			entries = append(entries, e)
+		}
+	}
+	if len(entries) == 0 {
+		ui.Text(r, "Nothing has happened yet.", th.Body().WithColor(th.TextDim))
+		return
+	}
+	const rowH = 26
+	content := ui.BeginScroll("log", r, float32(len(entries))*rowH)
+	for i, e := range entries {
+		row := content.CutTop(rowH)
+		if !ui.Visible(row) {
+			continue
+		}
+		e := e
+		jump := g.w.Rock(e.Rock) != nil
+		if jump && ui.Button(fmt.Sprint("log/", e.Seq), row.Pad(0, 0, 0, 2), "", kit.Btn{Quiet: true}) {
+			g.gotoRock(e.Rock)
+			g.window = windowNone
+		}
+		col := th.SeverityColor(int(e.Sev))
+		odd := i%2 == 1
+		ui.Paint(func(cv *gfx.Canvas) {
+			if odd {
+				cv.FillRect(row.Pad(0, 0, 0, 2), gfx.Fade(th.PanelHi, 0.5))
+			}
+			cv.FillRect(gfx.R(row.X, row.Y+3, 3, row.H-8), col)
+			cv.TextIn(gfx.R(row.X+12, row.Y, 70, row.H-2), fmt.Sprintf("Cycle %d", model.CycleOfTick(e.Tick)), th.NumSmall().WithColor(th.TextDim))
+			cv.TextFit(gfx.R(row.X+88, row.Y, row.W-96, row.H-2), e.Text, th.Small())
+		})
+	}
+	ui.EndScroll()
+}
+
 // -------------------------------------------------------------------- codex
 
 const guideText = `Your Hold lives while it has a Keystone. Destroy every rival Keystone to win.
@@ -470,7 +515,7 @@ SHIPS. Research Orbital Flight and build a Launch Cradle. Select a fleet by clic
 
 THE BELT. Rocks circle Emberfall at different speeds, so distances keep changing. Inner rocks get more sunlight; Ice is found further out.
 
-HOTKEYS. Tab: surface / belt map. Space: pause. 1, 2, 3: speed. W A S D or arrows: pan. Mouse wheel: zoom. Right-drag: pan. G: show deposits. Comma and period: previous / next colony. R, F, E, H: Research, Fleets, Exchange, Holds. F1: this Codex. F5: quick save. F11: full screen. Delete: demolish. Esc: cancel / menu.`
+HOTKEYS. Tab: surface / belt map. Space: pause. 1, 2, 3: speed. W A S D or arrows: pan. Mouse wheel: zoom. Right-drag: pan. G: show deposits. Comma and period: previous / next colony. R, F, E, H, L: Research, Fleets, Exchange, Holds, Log. F1: this Codex. F5: quick save. F11: full screen. Delete: demolish. Esc: cancel / menu.`
 
 func (g *Game) codexWindow(r gfx.Rect) {
 	ui, th := g.a.ui, g.a.th

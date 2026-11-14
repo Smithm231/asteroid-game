@@ -41,7 +41,7 @@ installer and nothing to install alongside it. Saves and settings are kept in
 | Mouse wheel | zoom |
 | Tab | surface view / belt map |
 | Space, 1, 2, 3 | pause, normal, double, quadruple speed |
-| R, F, E, H, F1 | Research, Fleets, Exchange, Holds, Codex |
+| R, F, E, H, L, F1 | Research, Fleets, Exchange, Holds, Log, Codex |
 | G | show deposits |
 | , and . | previous / next colony |
 | Delete | demolish the selected structure |

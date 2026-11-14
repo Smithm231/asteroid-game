@@ -17,7 +17,7 @@ func frameInput(frame int64) input.State {
 
 var fuzzKeys = []ebiten.Key{
 	ebiten.KeyTab, ebiten.KeySpace, ebiten.KeyDigit1, ebiten.KeyDigit2, ebiten.KeyDigit3, ebiten.KeyR, ebiten.KeyF,
-	ebiten.KeyE, ebiten.KeyH, ebiten.KeyF1, ebiten.KeyEscape, ebiten.KeyG, ebiten.KeyComma, ebiten.KeyPeriod,
+	ebiten.KeyE, ebiten.KeyH, ebiten.KeyL, ebiten.KeyF1, ebiten.KeyEscape, ebiten.KeyG, ebiten.KeyComma, ebiten.KeyPeriod,
 	ebiten.KeyHome, ebiten.KeyDelete, ebiten.KeyEnter, ebiten.KeyBackspace, ebiten.KeyW, ebiten.KeyA, ebiten.KeyS, ebiten.KeyD,
 }
 
@@ -340,7 +340,8 @@ func TestWalkEveryScreen(t *testing.T) {
 			b.Powered, b.Staffed, b.Eff = true, 1, 1
 		}
 	}
-	for _, id := range []windowID{windowResearch, windowFleets, windowExchange, windowHolds, windowCodex} {
+	w.Logf(g.me, model.SevAlert, home.ID, "A test message about %s.", home.Name)
+	for _, id := range []windowID{windowResearch, windowFleets, windowExchange, windowHolds, windowLog, windowCodex} {
 		g.gotoRock(home.ID)
 		g.openWindow(id)
 		show("window", nil)

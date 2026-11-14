@@ -200,18 +200,23 @@ func (g *Game) topBar(r gfx.Rect) {
 		{windowFleets, "Fleets", ebiten.KeyF, art.IconFleet},
 		{windowExchange, "Exchange", ebiten.KeyE, art.IconExchange},
 		{windowHolds, "Holds", ebiten.KeyH, art.IconHolds},
+		{windowLog, "Log", ebiten.KeyL, art.IconLog},
 		{windowCodex, "Codex", ebiten.KeyF1, art.IconHelp},
 	}
+	// On a narrow window the buttons shrink to their icons rather than vanish.
+	bw := min(float32(98), row1.W/float32(len(wins))-4)
 	for _, wd := range wins {
-		if row1.W < 96 {
-			break
-		}
 		o := kit.Btn{Selected: g.window == wd.id, Hotkey: wd.key, Icon: icon(wd.ic)}
+		label := wd.name
+		if bw < 84 {
+			label = ""
+			o.Tip = &kit.Tip{Title: wd.name}
+		}
 		if wd.id == windowResearch && fac != nil && fac.Research.Current == model.TechNone && len(fac.AvailableTechs()) > 0 &&
 			sim.ResearchRate(g.w, g.me) > 0 {
 			o.Primary = ui.Pulse(1.2) > 0.5 // idle laboratories: nudge the player
 		}
-		if ui.Button("win/"+wd.name, row1.CutLeft(98), wd.name, o) {
+		if ui.Button("win/"+wd.name, row1.CutLeft(max(bw, 30)), label, o) {
 			if g.window == wd.id {
 				g.window = windowNone
 			} else {

@@ -304,6 +304,7 @@ type Game struct {
 	tense   float32
 	logOpen bool
 	ended   bool
+	warned  map[model.FleetID]bool // inbound attacks already announced
 }
 
 func newGame(a *App, w *model.World) *Game {
@@ -497,6 +498,19 @@ func (g *Game) music(dt float32) {
 		case fl.Owner != g.me && fl.InTransit() && fl.Order == model.OrderAttack:
 			if d := g.w.Rock(fl.Dest); d != nil && d.Owner == g.me && sim.Visible(g.w, g.me, fl) {
 				g.tense = 0
+				if !g.warned[fl.ID] {
+					// First sighting of an inbound attack: tell the player.
+					if g.warned == nil {
+						g.warned = map[model.FleetID]bool{}
+					}
+					g.warned[fl.ID] = true
+					msg := fmt.Sprintf("Sensors: %d hostile ships inbound for %s", len(fl.Ships), d.Name)
+					if eta, ok := sim.ETA(g.w, fl); ok {
+						msg += ", arriving in " + fmtTime(eta)
+					}
+					g.toasts = append(g.toasts, toast{text: msg + ".", sev: model.SevAlert, rock: d.ID})
+					g.a.snd.Play(audio.Alert)
+				}
 			}
 		case fl.Owner == g.me && fl.Order == model.OrderAttack:
 			g.tense = 0

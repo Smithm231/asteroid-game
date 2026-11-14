@@ -61,7 +61,9 @@ func uiScale(user float64, winH int) float64 {
 		return 1.5
 	case winH >= 1300:
 		return 1.25
-	case winH < 760:
+	case winH < 700:
+		return 0.75
+	case winH < 800:
 		return 0.85
 	}
 	return 1
@@ -119,9 +121,16 @@ func main() {
 	a := app.New(opts)
 	g := &game{a: a, src: input.NewDevice(), full: a.Fullscreen()}
 	ebiten.SetWindowTitle("Drifthold")
-	ebiten.SetWindowSize(1600, 900)
-	ebiten.SetWindowSizeLimits(1100, 680, -1, -1)
+	ebiten.SetWindowSizeLimits(1100, 640, -1, -1)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	// Open at a comfortable size, or maximised when the screen is too small
+	// for it (a 1080p laptop at 150 % scaling has only 1280x720 to offer).
+	if mw, mh := ebiten.Monitor().Size(); mw >= 1700 && mh >= 1000 {
+		ebiten.SetWindowSize(1600, 900)
+	} else {
+		ebiten.SetWindowSize(min(1600, max(1100, mw-80)), min(900, max(640, mh-120)))
+		ebiten.MaximizeWindow()
+	}
 	ebiten.SetFullscreen(g.full)
 	ebiten.SetVsyncEnabled(true)
 	var icons []image.Image

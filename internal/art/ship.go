@@ -148,6 +148,41 @@ func (b *bpen) canopy(xy ...float32) {
 	b.poly(gfx.RGB(0x16283A), xy...)
 }
 
+// strut draws a beam between two points: a dark casing with a lighter core.
+func (b *bpen) strut(x0, y0, x1, y1, width float32, c gfx.Color) {
+	b.line(x0, y0, x1, y1, width+2*b.ow(), 2.4, inkLine)
+	b.line(x0, y0, x1, y1, width, 1, c)
+}
+
+// hexXY returns the corners of a regular hexagon as x, y pairs; a0 is the
+// angle of the first corner.
+func hexXY(cx, cy, r, a0 float32) [12]float32 {
+	var xy [12]float32
+	for i := 0; i < 6; i++ {
+		a := a0 + float32(i)*tau/6
+		xy[2*i], xy[2*i+1] = cx+r*cosf(a), cy+r*sinf(a)
+	}
+	return xy
+}
+
+// pyramid draws a faceted n-sided roof seen from above, rising to a point
+// at (cx, cy); every facet is toned by the way it faces on screen.
+func (b *bpen) pyramid(m mat3, cx, cy, r float32, n int, a0 float32) {
+	for i := 0; i < n; i++ {
+		a := a0 + float32(i)*tau/float32(n)
+		a1 := a + tau/float32(n)
+		mid := (a+a1)/2 + b.ang
+		c := m.mid
+		if d := cosf(mid)*lightX + sinf(mid)*lightY; d > 0.35 {
+			c = m.hi
+		} else if d < -0.35 {
+			c = m.lo
+		}
+		b.poly(c, cx, cy, cx+r*cosf(a), cy+r*sinf(a), cx+r*cosf(a1), cy+r*sinf(a1))
+	}
+	b.ngonLine(cx, cy, r, n, a0, b.ow(), 1, inkLine)
+}
+
 // ---------------------------------------------------------------------------
 // Prospector: a slim survey scout with a sounding dish on a side boom and a
 // probe at the nose.

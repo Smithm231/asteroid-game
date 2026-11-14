@@ -80,17 +80,18 @@ func (g *Game) inspectBuilding(f *flow, rock *model.Rock, b *model.Building) {
 	mine := b.Owner == g.me
 	onMyRock := rock.Owner == g.me
 	f.header(def.Name)
-	head := f.row(56)
+	head := f.row(64)
 	accent := th.FactionColor(int(b.Owner))
 	look := art.BuildingLook{Accent: accent, Progress: float32(b.Progress), Derelict: b.Derelict(), Off: !b.Working() && b.Completed(), Time: g.clock}
 	ui.Paint(func(cv *gfx.Canvas) {
-		art.Building(cv, b.Kind, head.X+28, head.MidY(), 26, look)
+		// The structure stands on its ground point: put that low in the box.
+		art.Building(cv, b.Kind, head.X+28, head.Bottom()-14, 24, look)
 	})
 	owner := "Derelict"
 	if of := g.w.Faction(b.Owner); of != nil {
 		owner = of.Name
 	}
-	ui.Label(gfx.R(head.X+64, head.Y+4, head.W-64, 18), owner, th.Small().WithColor(accent))
+	ui.Label(gfx.R(head.X+64, head.Y+12, head.W-64, 18), owner, th.Small().WithColor(accent))
 	status, scol := "Working", th.Good
 	switch {
 	case b.Derelict():
@@ -102,7 +103,7 @@ func (g *Game) inspectBuilding(f *flow, rock *model.Rock, b *model.Building) {
 	case !b.Working() && b.Kind != model.Conduit:
 		status, scol = "Idle", th.TextDim
 	}
-	ui.Label(gfx.R(head.X+64, head.Y+24, head.W-64, 18), status, th.Body().WithColor(scol))
+	ui.Label(gfx.R(head.X+64, head.Y+32, head.W-64, 18), status, th.Body().WithColor(scol))
 	f.gap(4)
 	g.hpBar(f, b.HP, b.MaxHP)
 

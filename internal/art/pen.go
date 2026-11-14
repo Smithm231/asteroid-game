@@ -19,6 +19,10 @@ type pen struct {
 	ang      float32 // the same rotation as an angle
 	turned   bool
 	px       float32 // length of one device pixel, in units
+	// ky, when not zero, foreshortens the frame's y axis: the pen then
+	// draws on the tilted ground plane of the angled surface view, where
+	// circles are ellipses.
+	ky float32
 	// tone, when set, filters every colour on its way to the canvas. It is
 	// how one drawing yields its derelict or switched-off variant.
 	tone func(gfx.Color) gfx.Color
@@ -56,6 +60,9 @@ var ptsBuf []gfx.Pt
 func (p *pen) pt(x, y float32) gfx.Pt {
 	if p.turned {
 		x, y = x*p.cos-y*p.sin, x*p.sin+y*p.cos
+	}
+	if p.ky != 0 {
+		y *= p.ky
 	}
 	return gfx.Pt{X: p.ox + x*p.k, Y: p.oy + y*p.k}
 }
@@ -110,25 +117,24 @@ func (p *pen) line(x0, y0, x1, y1, width, minPx float32, c gfx.Color) {
 	p.cv.Line(a.X, a.Y, b.X, b.Y, p.w(width, minPx), p.col(c))
 }
 
-// rect fills an axis-aligned rectangle given by its top-left corner and
-// size. In an unturned frame its edges are snapped to pixels (crisp); in a
-// turned frame it becomes a polygon.
-func (p *pen) rect(x, y, w, h float32, c gfx.Color) {
-	if p.turned {
-		p.poly(c, x, y, x+w, y, x+w, y+h, x, y+h)
-		return
-	}
-	p.cv.FillRect(gfx.R(p.ox+x*p.k, p.oy+y*p.k, w*p.k, h*p.k), p.col(c))
-}
-
 // quad fills an axis-aligned rectangle without pixel snapping, for parts
 // that must meet anti-aliased shapes exactly.
 func (p *pen) quad(x, y, w, h float32, c gfx.Color) {
 	p.poly(c, x, y, x+w, y, x+w, y+h, x, y+h)
 }
 
-// circle fills a disc.
+// circle fills a disc (an ellipse on a foreshortened frame).
 func (p *pen) circle(x, y, r float32, c gfx.Color) {
+	if p.ky != 0 && p.ky != 1 {
+		n := min(max(int(r/p.px)+6, 8), 24)
+		ptsBuf = ptsBuf[:0]
+		for i := 0; i < n; i++ {
+			a := tau * float32(i) / float32(n)
+			ptsBuf = append(ptsBuf, p.pt(x+r*cosf(a), y+r*sinf(a)))
+		}
+		p.cv.FillPoly(ptsBuf, p.col(c))
+		return
+	}
 	q := p.pt(x, y)
 	p.cv.FillCircle(q.X, q.Y, r*p.k, p.col(c))
 }
@@ -147,16 +153,12 @@ func (p *pen) arc(x, y, r, a0, a1, width, minPx float32, c gfx.Color) {
 
 // ngonLine strokes a regular polygon.
 func (p *pen) ngonLine(x, y, r float32, n int, a0, width, minPx float32, c gfx.Color) {
-	p.cv.StrokePoly(p.ngonPts(x, y, r, n, a0), p.w(width, minPx), p.col(c))
-}
-
-func (p *pen) ngonPts(x, y, r float32, n int, a0 float32) []gfx.Pt {
 	ptsBuf = ptsBuf[:0]
 	for i := 0; i < n; i++ {
 		sin, cos := math.Sincos(float64(a0) + 2*math.Pi*float64(i)/float64(n))
 		ptsBuf = append(ptsBuf, p.pt(x+r*float32(cos), y+r*float32(sin)))
 	}
-	return ptsBuf
+	p.cv.StrokePoly(ptsBuf, p.w(width, minPx), p.col(c))
 }
 
 // glow adds a soft light. It bypasses the tone filter: callers that draw
@@ -166,17 +168,14 @@ func (p *pen) glow(x, y, r float32, c gfx.Color) {
 	p.cv.Glow(q.X, q.Y, r*p.k, c)
 }
 
-// glowCore adds a tight light with a faint skirt.
-func (p *pen) glowCore(x, y, r float32, c gfx.Color) {
-	q := p.pt(x, y)
-	p.cv.GlowCore(q.X, q.Y, r*p.k, c)
-}
-
 // blob draws a soft-edged ellipse (normal blending), for shadows and smoke.
 // In a turned frame the ellipse stays axis-aligned; callers use round blobs
 // there.
 func (p *pen) blob(x, y, rx, ry float32, c gfx.Color) {
 	q := p.pt(x, y)
+	if p.ky != 0 {
+		ry *= p.ky
+	}
 	p.cv.Blob(q.X, q.Y, rx*p.k, ry*p.k, p.col(c))
 }
 
@@ -336,6 +335,19 @@ func sinf(a float32) float32 { return float32(math.Sin(float64(a))) }
 func cosf(a float32) float32 { return float32(math.Cos(float64(a))) }
 
 func clamp01(v float32) float32 { return min(max(v, 0), 1) }
+
+// wrap returns v reduced to [0, period): the phase of a cycle, also for
+// negative v.
+func wrap(v, period float32) float32 {
+	w := float64(v) - float64(period)*math.Floor(float64(v)/float64(period))
+	if !(w >= 0) || w >= float64(period) {
+		return 0
+	}
+	return float32(w)
+}
+
+// frac returns the fractional part of v, in [0, 1).
+func frac(v float32) float32 { return wrap(v, 1) }
 
 func lerpf(a, b, t float32) float32 { return a + (b-a)*t }
 

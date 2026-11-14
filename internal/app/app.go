@@ -361,7 +361,6 @@ func (g *Game) gotoRock(id model.RockID) {
 		g.rock = id
 		g.sel = selection{}
 		g.place = model.BuildingNone
-		g.scam.off = gfx.Pt{}
 		g.fitRock()
 	}
 	g.view = viewSurface
@@ -378,8 +377,13 @@ func (g *Game) fitRock() {
 	if w <= 0 || h <= 0 {
 		w, h = 1600-paletteW-inspectorW, 900-topH
 	}
+	// The rock is a plateau (the orbit ring around it sets its extent) with a
+	// cliff hanging some five tile sizes below its near edge.
 	ring := orbitRing(r) * 1.732
-	g.scam.hex = max(minHex+3, min(30, (w/2-24)/ring, (h/2-30)/(ring*art.Tilt)))
+	const cliff = 5
+	g.scam.hex = max(minHex+3, min(30, (w/2-24)/ring, (h-70)/(2*ring*art.Tilt+cliff)))
+	// Lift the plateau so that plateau and cliff together sit centred.
+	g.scam.off = gfx.P(0, -g.scam.hex*cliff/2*(1-art.Tilt)*2)
 }
 
 // orbitRing is the radius, in hex widths, of the ring on which ships in orbit

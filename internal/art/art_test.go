@@ -58,7 +58,7 @@ func TestBuildingsDraw(t *testing.T) {
 	for _, scale := range []float32{1, 1.5, 2} {
 		cv := testCanvas(scale)
 		for _, kind := range model.AllBuildingKinds() {
-			if buildingArts[kind].body == nil {
+			if structArts[kind].body == nil {
 				t.Fatalf("%v has no body art", kind)
 			}
 			for _, size := range testSizes {

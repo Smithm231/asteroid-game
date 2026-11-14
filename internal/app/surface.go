@@ -127,9 +127,23 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 			}
 		}
 	}
+	// Structures stand taller than their tile: a click on a structure's body
+	// means that structure, not the ground behind it. Nearest to the viewer wins.
 	hoverB := (*model.Building)(nil)
-	if onRock && hoverFleet == 0 {
-		hoverB = rock.BuildingAt(hoverHex)
+	if hover && hoverFleet == 0 {
+		for _, b := range rock.Buildings {
+			px, py := at(b.Hex)
+			top := art.BuildingTop(b.Kind, hex)
+			if in.X < px-hex*0.7 || in.X > px+hex*0.7 || in.Y < py-top || in.Y > py+hex*0.5*art.Tilt {
+				continue
+			}
+			if hoverB == nil || b.Hex.R > hoverB.Hex.R || (b.Hex.R == hoverB.Hex.R && b.Hex.Q > hoverB.Hex.Q) {
+				hoverB = b
+			}
+		}
+		if hoverB == nil && onRock {
+			hoverB = rock.BuildingAt(hoverHex)
+		}
 	}
 
 	// Placement preview.
@@ -343,6 +357,9 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 				cv.Panel(box, 4, gfx.CornersDiag, gfx.WithAlpha(th.Well, 0.92), col)
 				cv.TextIn(box, msg, st.Aligned(gfx.AlignCenter))
 			}
+		} else if hoverB != nil && !placing {
+			px, py := at(hoverB.Hex)
+			art.TileStroke(cv, px, py, hex, 1, gfx.Fade(th.Text, 0.6))
 		} else if onRock && !placing {
 			px, py := at(hoverHex)
 			art.TileStroke(cv, px, py, hex, 1, gfx.Fade(th.Text, 0.35))

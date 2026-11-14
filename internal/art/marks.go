@@ -74,7 +74,7 @@ func drawSurfaceMarks(cv *gfx.Canvas, rock *model.Rock, cx, cy, hexSize float32,
 			continue
 		}
 		ux, uy := hexCentre(h)
-		x, y := cx+ux*hexSize, cy+uy*hexSize
+		x, y := cx+ux*hexSize, cy+uy*hexSize*Tilt
 		if !cv.Visible(gfx.R(x-ext, y-ext, 2*ext, 2*ext)) {
 			continue
 		}
@@ -109,7 +109,10 @@ func paintDeposit(b *bpen, g model.Good, level, variant int, emph bool) {
 	if emph {
 		// The survey overlay: the tile is tinted and ringed in the good's
 		// colour and the outcrop itself is brighter.
-		hex := hexXY(0, 0, 0.88, -pi/2)
+		hex := tileXY(0.88)
+		for i := 1; i < len(hex); i += 2 {
+			hex[i] *= Tilt
+		}
 		b.poly(alpha(base, 0.2), hex[:]...)
 		b.outline(alpha(inkLine, 0.5), max(0.11, 3*b.px), 0, hex[:]...)
 		b.outline(alpha(gfx.Lighten(base, 0.15), 0.95), max(0.055, 1.4*b.px), 0, hex[:]...)
@@ -147,7 +150,7 @@ func paintDeposit(b *bpen, g model.Good, level, variant int, emph bool) {
 		bestD := float32(-1)
 		for try := 0; try < 8; try++ {
 			a, d := r.in(0, tau), spread*float32(math.Sqrt(float64(r.f())))
-			c := spot{d * cosf(a), d * sinf(a) * 0.9, r.in(-0.55, 0.55), r.in(0.8, 1.15)}
+			c := spot{d * cosf(a), d * sinf(a) * 0.9 * Tilt, r.in(-0.55, 0.55), r.in(0.8, 1.15)}
 			near := float32(9)
 			for _, o := range spots {
 				near = min(near, float32(math.Hypot(float64(c.x-o.x), float64(c.y-o.y))))
@@ -185,7 +188,7 @@ func paintDeposit(b *bpen, g model.Good, level, variant int, emph bool) {
 		// Loose sand around the plates.
 		for i := 0; i < 2+2*level; i++ {
 			a, d := r.in(0, tau), r.in(0.1, spread+0.16)
-			b.circle(d*cosf(a), d*sinf(a), max(0.022, 0.6*b.px), alpha(m.hi, 0.85))
+			b.circle(d*cosf(a), d*sinf(a)*Tilt, max(0.022, 0.6*b.px), alpha(m.hi, 0.85))
 		}
 	}
 }
@@ -289,13 +292,13 @@ func depositGem(b *bpen, x, y, h, a float32, m mat3, rim gfx.Color) {
 // strewn with plating and bent girders.
 func paintRubble(b *bpen, variant int) {
 	r := newRnd(uint64(variant)*7717 + 5)
-	b.blob(0, 0.03, 0.84, 0.76, gfx.Color{R: 0x09, G: 0x08, B: 0x0A, A: 0x78})
+	b.blob(0, 0.03*Tilt, 0.84, 0.76*Tilt, gfx.Color{R: 0x09, G: 0x08, B: 0x0A, A: 0x78})
 	// Girders.
 	for i := 0; i < 2; i++ {
 		a := r.in(0, pi)
 		l := r.in(0.3, 0.5)
-		x, y := r.in(-0.2, 0.2), r.in(-0.2, 0.2)
-		dx, dy := l*cosf(a), l*sinf(a)
+		x, y := r.in(-0.2, 0.2), r.in(-0.2, 0.2)*Tilt
+		dx, dy := l*cosf(a), l*sinf(a)*Tilt
 		b.line(x-dx, y-dy, x+dx, y+dy, 0.1, 2.2, alpha(inkLine, 0.9))
 		b.line(x-dx, y-dy, x+dx, y+dy, 0.045, 0.9, matIron.mid)
 	}
@@ -307,7 +310,7 @@ func paintRubble(b *bpen, variant int) {
 	}
 	for i := 0; i < n; i++ {
 		a, d := r.in(0, tau), r.in(0.08, 0.62)
-		x, y := d*cosf(a), d*sinf(a)*0.9
+		x, y := d*cosf(a), d*sinf(a)*0.9*Tilt
 		s := r.in(0.09, 0.17)
 		if b.tiny() {
 			s *= 1.3
@@ -332,7 +335,7 @@ func paintRubble(b *bpen, variant int) {
 	if !b.tiny() {
 		for i := 0; i < 6; i++ {
 			a, d := r.in(0, tau), r.in(0.3, 0.78)
-			b.circle(d*cosf(a), d*sinf(a), max(0.02, 0.6*b.px), alpha(matDark.lo, 0.9))
+			b.circle(d*cosf(a), d*sinf(a)*Tilt, max(0.02, 0.6*b.px), alpha(matDark.lo, 0.9))
 		}
 	}
 }

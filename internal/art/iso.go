@@ -12,7 +12,7 @@ import (
 
 // Tilt is the vertical foreshortening of the ground plane in the surface
 // view: 1 looks straight down, 0.5 is the classic two-to-one isometric slope.
-const Tilt = 1.0
+const Tilt = 0.5
 
 // HexPos returns where the centre of tile h is drawn, on the ground, for a
 // rock whose centre hex is drawn at center with tiles of corner radius
@@ -53,5 +53,5 @@ func TileStroke(cv *gfx.Canvas, cx, cy, size, width float32, col gfx.Color) {
 // structure of the given kind reaches when drawn at hex size size. The surface
 // view uses it to place status marks above a structure.
 func BuildingTop(kind model.BuildingKind, size float32) float32 {
-	return size * 0.8
+	return buildingTop(kind, size)
 }

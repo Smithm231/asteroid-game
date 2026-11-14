@@ -31,6 +31,7 @@ func main() {
 	events := flag.Bool("events", true, "enable random belt events")
 	validate := flag.Bool("validate", true, "check world invariants every cycle")
 	flag.BoolVar(&verbose, "v", false, "also list each Hold's buildings in the status table")
+	attacks := flag.Bool("attacks", false, "print every attack wave as it launches")
 	flag.Parse()
 
 	failed := false
@@ -60,6 +61,13 @@ func main() {
 					fmt.Printf("seed %d cycle %d: INVALID WORLD: %v\n", st.Seed, c, err)
 					failed = true
 					break
+				}
+			}
+			if *attacks {
+				for _, fl := range w.Fleets {
+					if fl.Order == model.OrderAttack && fl.InTransit() && w.Tick-fl.LaunchTick <= model.TicksPerCycle && fl.LaunchTick > 0 {
+						fmt.Printf("  [cycle %d] %s launches %d ships at %s\n", c, w.Faction(fl.Owner).Personality.Archetype(), len(fl.Ships), w.Rock(fl.Dest).Name)
+					}
 				}
 			}
 			if !*quiet {

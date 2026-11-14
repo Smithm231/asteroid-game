@@ -172,6 +172,23 @@ func (r *Rect) CutRight(n float32) Rect {
 	return Rect{r.X + r.W, r.Y, n, r.H}
 }
 
+// TakeTop returns the strip of height n along the top of r without changing
+// r: what CutTop would return. It also works on a value that is not
+// addressable, such as the result of another method.
+func (r Rect) TakeTop(n float32) Rect { return r.CutTop(n) }
+
+// TakeBottom returns the strip of height n along the bottom of r without
+// changing r.
+func (r Rect) TakeBottom(n float32) Rect { return r.CutBottom(n) }
+
+// TakeLeft returns the strip of width n along the left of r without changing
+// r.
+func (r Rect) TakeLeft(n float32) Rect { return r.CutLeft(n) }
+
+// TakeRight returns the strip of width n along the right of r without
+// changing r.
+func (r Rect) TakeRight(n float32) Rect { return r.CutRight(n) }
+
 // Col returns column i of n equal-width columns laid side by side across r,
 // left to right, separated by gap. It allocates nothing. It returns the zero
 // Rect if n < 1 or i is out of range.

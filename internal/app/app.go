@@ -321,8 +321,7 @@ func newGame(a *App, w *model.World) *Game {
 		}
 	}
 	g.logSeen = w.LogSeq
-	g.scam.hex = 22
-	g.centerOnKeystone()
+	g.fitRock()
 	g.bcam.zoom = 0
 	return g
 }
@@ -362,10 +361,29 @@ func (g *Game) gotoRock(id model.RockID) {
 		g.rock = id
 		g.sel = selection{}
 		g.place = model.BuildingNone
-		g.centerOnKeystone()
+		g.scam.off = gfx.Pt{}
+		g.fitRock()
 	}
 	g.view = viewSurface
 }
+
+// fitRock chooses the zoom at which the whole rock and its orbit ring fit in
+// the world view.
+func (g *Game) fitRock() {
+	r := g.cur()
+	if r == nil {
+		return
+	}
+	h := g.a.in.H - topH
+	if h <= 0 {
+		h = 900 - topH
+	}
+	g.scam.hex = max(minHex+3, min(24, (h/2-24)/(orbitRing(r)*1.732)))
+}
+
+// orbitRing is the radius, in hex widths, of the ring on which ships in orbit
+// of a rock are drawn.
+func orbitRing(r *model.Rock) float32 { return float32(r.Radius) + 0.9 }
 
 func (g *Game) centerOnKeystone() {
 	g.scam.off = gfx.Pt{}
@@ -713,6 +731,9 @@ func (g *Game) toggleView() {
 	}
 	g.place = model.BuildingNone
 	g.menu = nil
+	if g.sel.kind == selBuilding || g.sel.kind == selTile {
+		g.sel = selection{} // a surface selection means nothing on the belt map
+	}
 }
 
 // fmtQty formats an amount compactly for the resource bar.

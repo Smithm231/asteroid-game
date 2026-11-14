@@ -662,8 +662,13 @@ func (c *Ctx) TipFor(id string, r gfx.Rect, tip *Tip) { c.Tooltip(hashID(id), r,
 
 func (c *Ctx) drawTip() {
 	tip, th, scale := c.tip, c.Th, c.In.Scale
-	const w = float32(300)
+	w := float32(300)
 	pad := float32(10)
+	if tip.Body == "" && tip.Foot == "" && len(tip.Rows) == 0 {
+		// A bare title: make the box fit it.
+		tw, _ := gfx.MeasureText(tip.Title, th.Body().Weighted(gfx.Bold), scale)
+		w = min(w, tw+2*pad+2)
+	}
 	inner := w - 2*pad
 	body, foot := th.Small().WithColor(th.Text), th.Small().WithColor(th.TextDim)
 	var bodyLines, footLines []string

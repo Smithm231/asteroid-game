@@ -341,7 +341,7 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 			ph := e.age / e.life
 			px, py := at(e.hex)
 			orbit := func() (float32, float32) {
-				r := hex * 1.732 * (float32(rock.Radius) + 2.2)
+				r := hex * 1.732 * orbitRing(rock)
 				return origin.X + r*float32(math.Cos(float64(e.angle))), origin.Y + r*float32(math.Sin(float64(e.angle)))
 			}
 			switch e.kind {
@@ -381,7 +381,7 @@ func (g *Game) orbitLayout(rock *model.Rock, origin gfx.Pt, hex float32) []orbit
 	if len(fleets) == 0 {
 		return nil
 	}
-	radius := hex * 1.732 * (float32(rock.Radius) + 2.2)
+	radius := hex * 1.732 * orbitRing(rock)
 	step := max(11, min(22, hex*0.8)) * 1.5 / radius
 	base := float64(g.clock) * 0.02
 	n := 0

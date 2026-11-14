@@ -31,19 +31,7 @@ type BuildingLook struct {
 // Building draws a building of the given kind centred on (cx, cy), sized to
 // sit inside a hex tile whose corner radius is size.
 func Building(cv *gfx.Canvas, kind model.BuildingKind, cx, cy, size float32, look BuildingLook) {
-	th := gfx.Default()
-	body := gfx.Lerp(th.PanelHi, look.Accent, 0.35)
-	if look.Derelict {
-		body = gfx.Darken(th.PanelHi, 0.3)
-	}
-	cv.FillHex(cx, cy, size*0.72, body)
-	cv.StrokeHex(cx, cy, size*0.72, 1, look.Accent)
-	name := kind.String()
-	if len(name) > 2 {
-		name = name[:2]
-	}
-	st := th.Small().Aligned(gfx.AlignCenter)
-	cv.Text(name, cx, cy-st.Size*0.6, st)
+	drawBuilding(cv, kind, cx, cy, size, look)
 }
 
 // BuildingIcon draws a static picture of a building kind inside r, for build

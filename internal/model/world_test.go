@@ -711,14 +711,14 @@ func TestBerthsAndShipCount(t *testing.T) {
 	if got := w.BerthsUsed(1); got != 5 {
 		t.Errorf("BerthsUsed(1) = %d, want 5 (all one-berth ships)", got)
 	}
-	if got := w.BerthCap(1); got != 4 {
-		t.Errorf("BerthCap(1) = %d, want 4 (one Keystone)", got)
+	if got := w.BerthCap(1); got != 6 {
+		t.Errorf("BerthCap(1) = %d, want 6 (one Keystone)", got)
 	}
-	if got := w.BerthsFree(1); got != -1 {
-		t.Errorf("BerthsFree(1) = %d, want -1", got)
+	if got := w.BerthsFree(1); got != 1 {
+		t.Errorf("BerthsFree(1) = %d, want 1", got)
 	}
 	// Rival: three Darts, nothing queued.
-	if w.ShipCount(2) != 3 || w.BerthsUsed(2) != 3 || w.BerthCap(2) != 4 {
+	if w.ShipCount(2) != 3 || w.BerthsUsed(2) != 3 || w.BerthCap(2) != 6 {
 		t.Errorf("rival: ships %d, berths %d/%d", w.ShipCount(2), w.BerthsUsed(2), w.BerthCap(2))
 	}
 	if w.ShipCount(0) != 0 || w.BerthCap(0) != 0 || w.BerthsUsed(0) != 0 {
@@ -731,20 +731,20 @@ func TestBerthsAndShipCount(t *testing.T) {
 	if err := r0.AddBuilding(ring); err != nil {
 		t.Fatal(err)
 	}
-	if got := w.BerthCap(1); got != 4 {
+	if got := w.BerthCap(1); got != 6 {
 		t.Errorf("a Dock Ring under construction added berths: %d", got)
 	}
 	ring.Complete()
-	if got := w.BerthCap(1); got != 10 {
-		t.Errorf("BerthCap with a Dock Ring = %d, want 10", got)
+	if got := w.BerthCap(1); got != 12 {
+		t.Errorf("BerthCap with a Dock Ring = %d, want 12", got)
 	}
 	ring.Enabled = false
-	if got := w.BerthCap(1); got != 4 {
+	if got := w.BerthCap(1); got != 6 {
 		t.Errorf("a disabled Dock Ring added berths: %d", got)
 	}
 	ring.Enabled = true
 	ring.MakeDerelict()
-	if got := w.BerthCap(1); got != 4 {
+	if got := w.BerthCap(1); got != 6 {
 		t.Errorf("a derelict Dock Ring added berths: %d", got)
 	}
 

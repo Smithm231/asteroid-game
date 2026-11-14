@@ -190,7 +190,7 @@ func TestFoundAndDissolveColony(t *testing.T) {
 	if err := w.Validate(); err != nil {
 		t.Errorf("world invalid after founding: %v", err)
 	}
-	if w.ColonyCount(1) != 2 || w.BerthCap(1) != 8 {
+	if w.ColonyCount(1) != 2 || w.BerthCap(1) != 12 {
 		t.Errorf("after founding: %d colonies, %d berths", w.ColonyCount(1), w.BerthCap(1))
 	}
 	if _, err := w.FoundColony(2, 2, Hex{0, 1}); !errors.Is(err, ErrRockClaimed) {
@@ -227,7 +227,7 @@ func TestFoundAndDissolveColony(t *testing.T) {
 			t.Errorf("building %d lost its tile", b.ID)
 		}
 	}
-	if w.BerthCap(1) != 4 || w.ColonyCount(1) != 1 {
+	if w.BerthCap(1) != 6 || w.ColonyCount(1) != 1 {
 		t.Errorf("after the fall: %d berths, %d colonies", w.BerthCap(1), w.ColonyCount(1))
 	}
 	if err := w.Validate(); err != nil {

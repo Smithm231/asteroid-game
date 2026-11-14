@@ -180,8 +180,9 @@ var buildingDefs = [NumBuildingKinds]BuildingDef{
 		Kind: Keystone, Name: "Keystone", Category: CatCore,
 		Power: 20, Staff: 0, MaxHP: 1200,
 		Unlock: TechNone, MaxPerRock: 1,
-		Housing: 12, LifeSupport: 12, Storage: 400, Berths: 4, SensorRange: 260, RevealRadius: 3,
-		Role:        "Colony command: power 20, housing 12, life support 12, storage 400, 4 berths, sensors 260 u.",
+		Housing: 12, LifeSupport: 12, Storage: 400, Berths: 6, SensorRange: 260, RevealRadius: 3,
+		Outputs:     Stock{Alloy: KeystoneAlloyTrickle},
+		Role:        "Colony command: power 20, housing 12, life support 12, storage 400, 6 berths, sensors 260 u, reclaims 4 Alloy per cycle.",
 		Description: "The charter seal of a colony, sunk deep into the rock. If the Keystone falls, the colony falls with it.",
 	},
 	Conduit: {
@@ -209,7 +210,7 @@ var buildingDefs = [NumBuildingKinds]BuildingDef{
 	},
 	Sunvane: {
 		Kind: Sunvane, Name: "Sunvane", Category: CatPower,
-		Cost: Stock{Alloy: 20, Silica: 15}, BuildTime: 15, Power: 12, SolarPower: true, MaxHP: 120,
+		Cost: Stock{Alloy: 20, Silica: 15}, BuildTime: 15, Power: 16, SolarPower: true, MaxHP: 120,
 		Unlock: TechNone, StartUnlocked: true,
 		Role:        "Solar collector: power 12 x the rock's sunlight.",
 		Description: "Broad vanes turned to catch Emberfall's red light. Rocks on tighter orbits yield far more.",
@@ -250,8 +251,8 @@ var buildingDefs = [NumBuildingKinds]BuildingDef{
 		Kind: Greenhouse, Name: "Greenhouse", Category: CatLife,
 		Cost: Stock{Alloy: 20, Silica: 40}, BuildTime: 25, Power: -6, Staff: 2, MaxHP: 140,
 		Unlock: TechNone, StartUnlocked: true,
-		Inputs: Stock{Ice: 2}, Outputs: Stock{Food: 14},
-		Role:        "Grows 14 Food per cycle from 2 Ice.",
+		Inputs: Stock{Ice: 1}, Outputs: Stock{Food: 14},
+		Role:        "Grows 14 Food per cycle from 1 Ice.",
 		Description: "Racks of hardy greens under grow-lamps, watered with melted Ice.",
 	},
 	Commons: {
@@ -298,8 +299,8 @@ var buildingDefs = [NumBuildingKinds]BuildingDef{
 		Kind: Laboratory, Name: "Laboratory", Category: CatScience,
 		Cost: Stock{Alloy: 60, Silica: 40, Parts: 10}, BuildTime: 45, Power: -12, Staff: 4, MaxHP: 200,
 		Unlock: TechNone, StartUnlocked: true,
-		ResearchRate: 6,
-		Role:         "Generates 6 research points per cycle.",
+		ResearchRate: 12,
+		Role:         "Generates 12 research points per cycle.",
 		Description:  "Benches, test rigs and people paid to ask why. Each Laboratory adds to the Hold's research.",
 	},
 	LaunchCradle: {

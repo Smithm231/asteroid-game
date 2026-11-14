@@ -161,6 +161,9 @@ func NewGame(settings model.GameSettings) (*model.World, error) {
 			if _, err := w.FoundColony(rock.ID, f.ID, site); err != nil {
 				return nil, fmt.Errorf("founding start colony on %s: %w", rock.Name, err)
 			}
+			// The charter survey: a start colony knows its surroundings out to
+			// the guaranteed Ice pocket.
+			rock.RevealWithin(site, model.StartIceRange, f.ID)
 			rock.Colony.Stock = model.StartStock()
 			rock.Colony.Pop = model.StartPop
 			rock.Colony.Workers = int(model.StartPop)
@@ -448,5 +451,5 @@ func genStartDeposits(rng *model.RNG, rock *model.Rock, site model.Hex) {
 	}
 	place(model.Ore, 2, model.StartVeinRange-1, rng.IntRange(5, 7), 700, model.VeinAmountMax)
 	place(model.Silica, 2, model.StartVeinRange-1, rng.IntRange(4, 6), 600, model.VeinAmountMax)
-	place(model.Ice, 3, model.StartIceRange-1, rng.IntRange(2, 3), 300, 520)
+	place(model.Ice, 3, model.StartIceRange-1, rng.IntRange(3, 4), 400, 650)
 }

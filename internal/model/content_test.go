@@ -322,7 +322,7 @@ func TestBuildingTable(t *testing.T) {
 		{Conduit, "Conduit", CatCore, Stock{Alloy: 4}, 3, 0, 0, 60, start},
 		{Silo, "Silo", CatCore, Stock{Alloy: 30, Silica: 10}, 15, -1, 0, 300, start},
 		{SurveyMast, "Survey Mast", CatCore, Stock{Alloy: 15, Silica: 5}, 12, -2, 1, 100, start},
-		{Sunvane, "Sunvane", CatPower, Stock{Alloy: 20, Silica: 15}, 15, 12, 0, 120, start},
+		{Sunvane, "Sunvane", CatPower, Stock{Alloy: 20, Silica: 15}, 15, 16, 0, 120, start},
 		{ThermalStack, "Thermal Stack", CatPower, Stock{Alloy: 60, Silica: 20, Parts: 10}, 30, 45, 2, 250, VolatileCracking},
 		{LumenCore, "Lumen Core", CatPower, Stock{Alloy: 150, Parts: 60, Lumen: 20}, 60, 160, 4, 400, LumenFusion},
 		{Habitat, "Habitat", CatLife, Stock{Alloy: 30, Silica: 30}, 20, -3, 0, 200, start},
@@ -385,7 +385,7 @@ func TestBuildingTable(t *testing.T) {
 
 	// Function parameters.
 	k := BuildingDefOf(Keystone)
-	if k.Housing != 12 || k.LifeSupport != 12 || k.Storage != 400 || k.Berths != 4 || k.SensorRange != 260 || k.RevealRadius != 3 {
+	if k.Housing != 12 || k.LifeSupport != 12 || k.Storage != 400 || k.Berths != 6 || k.SensorRange != 260 || k.RevealRadius != 3 {
 		t.Errorf("Keystone parameters: %+v", k)
 	}
 	if k.CommandBuildable() {
@@ -412,7 +412,7 @@ func TestBuildingTable(t *testing.T) {
 	if d := BuildingDefOf(Aerator); d.LifeSupport != 24 {
 		t.Errorf("Aerator life support = %v", d.LifeSupport)
 	}
-	if d := BuildingDefOf(Greenhouse); d.Inputs != (Stock{Ice: 2}) || d.Outputs != (Stock{Food: 14}) {
+	if d := BuildingDefOf(Greenhouse); d.Inputs != (Stock{Ice: 1}) || d.Outputs != (Stock{Food: 14}) {
 		t.Errorf("Greenhouse: %+v", d)
 	}
 	if d := BuildingDefOf(Commons); d.MoraleCover != 40 {
@@ -430,7 +430,7 @@ func TestBuildingTable(t *testing.T) {
 	if d := BuildingDefOf(Fabricator); d.Inputs != (Stock{Alloy: 12, Silica: 8}) || d.Outputs != (Stock{Parts: 8}) {
 		t.Errorf("Fabricator: %+v", d)
 	}
-	if d := BuildingDefOf(Laboratory); d.ResearchRate != 6 {
+	if d := BuildingDefOf(Laboratory); d.ResearchRate != 12 {
 		t.Errorf("Laboratory rate = %v", d.ResearchRate)
 	}
 	if d := BuildingDefOf(LaunchCradle); d.QueueSize != 5 || MaxShipQueue != 5 {
@@ -792,7 +792,7 @@ func TestScalarRules(t *testing.T) {
 	}
 
 	// Starting and Seedship stock.
-	if got, want := StartStock(), (Stock{Alloy: 160, Silica: 130, Ice: 90, Fuel: 30, Food: 110, Parts: 20}); got != want {
+	if got, want := StartStock(), (Stock{Alloy: 260, Silica: 180, Ice: 90, Fuel: 30, Food: 110, Parts: 20}); got != want {
 		t.Errorf("StartStock() = %v", got)
 	}
 	if StartStock()[Ore] != 0 || StartStock()[Lumen] != 0 {
@@ -801,7 +801,7 @@ func TestScalarRules(t *testing.T) {
 	if got, want := SeedshipStock(), (Stock{Alloy: 80, Silica: 60, Food: 50, Ice: 40}); got != want {
 		t.Errorf("SeedshipStock() = %v", got)
 	}
-	if StartPop != 14 || StartMorale != 60 || StartScrip != 400 || SeedshipColonists != 12 || SeedshipMinPop != 20 {
+	if StartPop != 12 || StartMorale != 60 || StartScrip != 400 || SeedshipColonists != 12 || SeedshipMinPop != 20 {
 		t.Error("setup constants are wrong")
 	}
 	if RefundGoods() != [3]Good{Alloy, Silica, Parts} {

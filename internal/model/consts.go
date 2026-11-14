@@ -118,7 +118,7 @@ const (
 // Game setup.
 const (
 	// StartPop is the population of every starting colony.
-	StartPop = 14.0
+	StartPop = 12.0
 	// StartMorale is the morale of every starting colony (and of colonies
 	// founded later).
 	StartMorale = 60.0
@@ -132,11 +132,16 @@ const (
 	DefaultPlayerName = "Free Charter of Ansel"
 )
 
-// StartStock returns the stock of every starting colony: Alloy 160,
-// Silica 130, Ice 90, Fuel 30, Food 110, Parts 20 (no Ore, no Lumen).
+// StartStock returns the stock of every starting colony: Alloy 260,
+// Silica 180, Ice 90, Fuel 30, Food 110, Parts 20 (no Ore, no Lumen).
 func StartStock() Stock {
-	return Stock{Alloy: 160, Silica: 130, Ice: 90, Fuel: 30, Food: 110, Parts: 20}
+	return Stock{Alloy: 260, Silica: 180, Ice: 90, Fuel: 30, Food: 110, Parts: 20}
 }
+
+// KeystoneAlloyTrickle is the Alloy a Keystone's reclaimer yields per cycle.
+// It is small, but it guarantees that a colony which has spent its last Alloy
+// can always work its way back to a Bore Rig and a Smelter.
+const KeystoneAlloyTrickle = 4.0
 
 // Faction accent colour indices (the palette itself belongs to the UI).
 const (
@@ -159,7 +164,7 @@ const (
 	// FoodPerColonist is the Food eaten per colonist per cycle.
 	FoodPerColonist = 0.5
 	// IcePerColonist is the Ice used per colonist per cycle.
-	IcePerColonist = 0.2
+	IcePerColonist = 0.1
 	// StipendPerColonist is the Scrip a faction earns per colonist per cycle.
 	StipendPerColonist = 0.4
 

@@ -157,7 +157,7 @@ func checkBuildings(fail failFunc) {
 		if (d.DriverRange > 0) != (d.DriverDamage > 0) || (d.DriverRange > 0) != (d.DriverCooldown > 0) {
 			fail("%s: driver range, damage and cooldown must be set together", what)
 		}
-		if d.Produces() && d.Inputs.IsZero() {
+		if d.Produces() && d.Inputs.IsZero() && d.Kind != Keystone {
 			fail("%s: producer without inputs", what)
 		}
 		if d.DefaultPriority() < PriorityLow || d.DefaultPriority() > PriorityHigh {

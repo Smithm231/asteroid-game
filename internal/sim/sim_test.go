@@ -397,7 +397,7 @@ func TestShipyardSurveyAndColonize(t *testing.T) {
 	if target.Owner != f || target.Colony == nil || target.Colony.Pop != model.SeedshipColonists || fac.Stats.ColoniesFounded != 1 {
 		t.Fatalf("colony not founded: owner %d", target.Owner)
 	}
-	if w.BerthCap(f) != 8 {
+	if w.BerthCap(f) != 12 {
 		t.Errorf("berth cap %d after second colony", w.BerthCap(f))
 	}
 	// Freight route between the two colonies.

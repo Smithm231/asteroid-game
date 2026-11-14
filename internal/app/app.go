@@ -684,6 +684,10 @@ func (g *Game) hotkeys() {
 		default:
 			g.a.openDialog(dialogMenu)
 		}
+		// The key has done its job: nothing else may react to it this frame
+		// (a dialog just opened would close again at once).
+		g.a.in.ClearKey(ebiten.KeyEscape)
+		g.a.ui.In.ClearKey(ebiten.KeyEscape)
 	}
 }
 

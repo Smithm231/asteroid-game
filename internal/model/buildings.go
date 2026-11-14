@@ -212,7 +212,7 @@ var buildingDefs = [NumBuildingKinds]BuildingDef{
 		Kind: Sunvane, Name: "Sunvane", Category: CatPower,
 		Cost: Stock{Alloy: 20, Silica: 15}, BuildTime: 15, Power: 16, SolarPower: true, MaxHP: 120,
 		Unlock: TechNone, StartUnlocked: true,
-		Role:        "Solar collector: power 12 x the rock's sunlight.",
+		Role:        "Solar collector: power 16 x the rock's sunlight.",
 		Description: "Broad vanes turned to catch Emberfall's red light. Rocks on tighter orbits yield far more.",
 	},
 	ThermalStack: {

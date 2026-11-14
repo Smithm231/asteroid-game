@@ -6,8 +6,18 @@ import (
 	"drifthold/internal/gfx"
 )
 
-// frac returns the fractional part of v (v >= 0).
-func frac(v float32) float32 { return float32(math.Mod(float64(v), 1)) }
+// wrap returns v reduced to [0, period): the phase of a cycle, also for
+// negative v.
+func wrap(v, period float32) float32 {
+	w := float64(v) - float64(period)*math.Floor(float64(v)/float64(period))
+	if !(w >= 0) || w >= float64(period) {
+		return 0
+	}
+	return float32(w)
+}
+
+// frac returns the fractional part of v, in [0, 1).
+func frac(v float32) float32 { return wrap(v, 1) }
 
 // ---------------------------------------------------------------------------
 // Bore Rig: a square drill frame on four splayed feet over a bore hole, a
@@ -28,8 +38,8 @@ func boreRigBody(b *bpen) {
 		}
 	}
 	b.block(matSteel, 0.14, -0.44, -0.44, 0.88, 0.88)
-	b.rect(-0.31, -0.31, 0.62, 0.62, inkLine)
-	b.rect(-0.28, -0.28, 0.56, 0.56, matDark.lo)
+	b.rect(-0.295, -0.295, 0.59, 0.59, matDark.lo)
+	b.outline(inkLine, b.ow(), 1.2, -0.295, -0.295, 0.295, -0.295, 0.295, 0.295, -0.295, 0.295)
 	for _, sx := range [2]float32{-1, 1} {
 		for _, sy := range [2]float32{-1, 1} {
 			b.rect(sx*0.37-0.045, sy*0.37-0.045, 0.09, 0.09, b.acc.mid)
@@ -37,7 +47,7 @@ func boreRigBody(b *bpen) {
 	}
 	b.line(-0.28, -0.28, 0.28, 0.28, 0.05, 1, matIron.lo)
 	b.line(-0.28, 0.28, 0.28, -0.28, 0.05, 1, matIron.lo)
-	b.circle(0, 0, 0.23, inkLine)
+	b.well(0, 0, 0.22, colPit)
 }
 
 func boreRigMotion(b *bpen) {
@@ -68,11 +78,11 @@ const (
 
 func smelterBody(b *bpen) {
 	b.drum(matIron, 0.28, 0.45, -0.43, 0.14)
-	b.circle(0.45, -0.43, 0.085, inkLine)
+	b.well(0.45, -0.43, 0.08, colPit)
 	b.block(matPlate, 0.14, -0.7, -0.5, 0.92, 1.0)
 	// The ore hopper on the roof.
-	b.poly(inkLine, -0.63, -0.43, -0.25, -0.43, -0.31, -0.13, -0.57, -0.13)
-	b.poly(gfx.RGB(0xC0714F), -0.59, -0.395, -0.29, -0.395, -0.335, -0.165, -0.545, -0.165)
+	b.poly(gfx.RGB(0xC0714F), -0.61, -0.415, -0.27, -0.415, -0.32, -0.15, -0.56, -0.15)
+	b.outline(inkLine, b.ow(), 1.2, -0.61, -0.415, -0.27, -0.415, -0.32, -0.15, -0.56, -0.15)
 	if !b.tiny() {
 		b.circle(-0.5, -0.3, 0.035, gfx.RGB(0x8A4E36))
 		b.circle(-0.39, -0.26, 0.03, gfx.RGB(0xDA8E6C))
@@ -87,12 +97,11 @@ func smelterBody(b *bpen) {
 	}
 	b.rect(-0.64, 0.345, 0.8, 0.08, b.acc.mid)
 	b.drum(matDark, 0.1, smelterPotX, smelterPotY, 0.36)
-	b.circle(smelterPotX, smelterPotY, 0.27, inkLine)
 	slag := gfx.RGB(0x2A2C35)
 	if b.lit {
 		slag = colHot
 	}
-	b.circle(smelterPotX, smelterPotY, 0.245, slag)
+	b.well(smelterPotX, smelterPotY, 0.255, slag)
 }
 
 func smelterMotion(b *bpen) {
@@ -106,7 +115,7 @@ func smelterMotion(b *bpen) {
 	// Sparks jumping from the pot.
 	for i := 0; i < 2; i++ {
 		f := frac(b.t*0.9 + float32(i)*0.53)
-		a := 3.9 + float32(i)*1.7 + float32(int(b.t*0.9+float32(i)*0.53))*2.4
+		a := 3.9 + float32(i)*1.7 + wrap(float32(math.Floor(float64(b.t*0.9+float32(i)*0.53)))*2.4, tau)
 		d := 0.2 + 0.4*f
 		b.circle(smelterPotX+d*cosf(a), smelterPotY+d*sinf(a)-0.15*f, max(0.025, 1.1*b.px), alpha(colHotCore, 1-f))
 	}
@@ -128,6 +137,10 @@ const (
 )
 
 func crackerBody(b *bpen) {
+	// The skid under the fuel tanks and the ice intake beside the column.
+	b.slab(matPad, 0.03, -0.14, -0.1, 0.3, -0.2, 0.74, 0.34, 0.6, 0.62, 0.16, 0.46, -0.18, 0.2)
+	b.strut(-0.56, 0.1, -0.44, -0.02, 0.07, matIron.mid)
+	b.block(matIce, 0.06, -0.74, 0.06, 0.22, 0.17)
 	b.strut(-0.38, -0.24, 0.16, 0.12, 0.13, matCopper.mid)
 	b.strut(0.16, 0.12, 0.52, 0.4, 0.1, matCopper.mid)
 	// The flare boom and its shadow.
@@ -233,8 +246,7 @@ func laboratoryBody(b *bpen) {
 		b.window(x, 0.365, 0.12, 0.08, gfx.RGB(labGlow))
 	}
 	b.dome(matCream, 0.14, 0, labDomeY, 0.47)
-	b.circle(0, labDomeY, 0.215, inkLine)
-	b.circle(0, labDomeY, 0.18, b.lamp(gfx.RGB(labGlow)))
+	b.well(0, labDomeY, 0.195, b.lamp(gfx.RGB(labGlow)))
 	if !b.lit {
 		b.circle(-0.03, labDomeY-0.04, 0.09, gfx.RGB(0x2B3550))
 	}
@@ -380,7 +392,7 @@ func exchangeDockBody(b *bpen) {
 }
 
 func exchangeDockMotion(b *bpen) {
-	on := int(math.Mod(float64(b.t*2.5), 4))
+	on := int(wrap(b.t*2.5, 4)) % 4
 	for i, l := range exchangeLights {
 		if b.lit && i == on {
 			b.glow(l[0], l[1], 0.2, alpha(b.acc.hi, 0.8))
@@ -419,10 +431,10 @@ func ellipseXY(dst []float32, cx, cy, a, c, ang float32, n int) []float32 {
 func (b *bpen) smallDish(x, y, r float32) {
 	b.drum(matIron, 0.04, x-0.02, y+0.03, r*0.5)
 	b.shadowCircle(x, y, r, 0.1)
-	b.circle(x, y, r+b.ow()/2, inkLine)
-	b.circle(x, y, r-b.ow()/2, matSteel.lo)
+	b.circle(x, y, r, matSteel.lo)
 	b.circle(x-lightX*r*0.16, y-lightY*r*0.16, r*0.74, matSteel.mid)
 	b.circle(x-lightX*r*0.3, y-lightY*r*0.3, r*0.4, matSteel.hi)
+	b.ring(x, y, r, b.ow(), 1, inkLine)
 	b.circle(x, y, max(r*0.16, 1.1*b.px), b.acc.mid)
 }
 
@@ -443,12 +455,11 @@ func farseerMotion(b *bpen) {
 	var buf [48]float32
 	sh := ellipseXY(buf[:0], 0.2*shadowDX, farseerY+0.2*shadowDY, a, c, ang, 24)
 	b.poly(inkShadow, sh...)
-	o := b.ow()
-	b.poly(inkLine, ellipseXY(buf[:0], 0, farseerY, a+o/2, c+o/2, ang, 24)...)
-	b.poly(matSteel.lo, ellipseXY(buf[:0], 0, farseerY, a-o/2, c-o/2, ang, 24)...)
+	b.poly(matSteel.lo, ellipseXY(buf[:0], 0, farseerY, a, c, ang, 24)...)
 	// The hollow of the bowl catches the light on its far side.
 	b.poly(matSteel.mid, ellipseXY(buf[:0], -lightX*0.07, farseerY-lightY*0.07, a*0.82, c*0.82, ang, 24)...)
 	b.poly(matSteel.hi, ellipseXY(buf[:0], -lightX*0.15, farseerY-lightY*0.15, a*0.5, c*0.5, ang, 20)...)
+	b.outline(inkLine, b.ow(), 1, ellipseXY(buf[:0], 0, farseerY, a, c, ang, 24)...)
 	// Feed horn on its struts, leaning the way the dish looks.
 	fx, fy := 0.2*cosf(ang), farseerY+0.2*sinf(ang)
 	sn, cs := sinf(ang), cosf(ang)
@@ -469,27 +480,28 @@ func farseerMotion(b *bpen) {
 // ---------------------------------------------------------------------------
 
 func menderHubBody(b *bpen) {
-	// The court.
-	b.rect(-0.3, -0.16, 0.6, 0.74, inkLine)
-	b.rect(-0.27, -0.16, 0.54, 0.71, matPad.lo)
-	b.ring(0, 0.22, 0.2, 0.04, 1, alpha(matCream.hi, 0.9))
-	b.rect(-0.045, 0.1, 0.09, 0.24, colRepair)
-	b.rect(-0.12, 0.175, 0.24, 0.09, colRepair)
+	// The court is open ground: a painted landing circle and the repair
+	// cross on a low plate.
+	b.ring(0, 0.24, 0.24, 0.04, 1, alpha(matCream.hi, 0.85))
+	b.rect(-0.075, 0.07, 0.15, 0.34, inkLine)
+	b.rect(-0.17, 0.165, 0.34, 0.15, inkLine)
+	b.rect(-0.045, 0.1, 0.09, 0.28, colRepair)
+	b.rect(-0.14, 0.195, 0.28, 0.09, colRepair)
 	// The depot: two arms and the bar that joins them.
-	for _, x := range [2]float32{-0.64, 0.28} {
-		b.block(matSteel, 0.12, x, -0.2, 0.36, 0.72)
-		b.rect(x+0.08, 0.02, 0.2, 0.13, inkLine)
-		b.rect(x+0.08, 0.27, 0.2, 0.13, inkLine)
+	for _, x := range [2]float32{-0.66, 0.34} {
+		b.block(matSteel, 0.12, x, -0.2, 0.32, 0.76)
+		b.rect(x+0.07, 0.04, 0.18, 0.13, inkLine)
+		b.rect(x+0.07, 0.3, 0.18, 0.13, inkLine)
 		if !b.tiny() {
-			b.rect(x+0.1, 0.04, 0.16, 0.09, matDark.mid)
-			b.rect(x+0.1, 0.29, 0.16, 0.09, matDark.mid)
+			b.rect(x+0.09, 0.06, 0.14, 0.09, matDark.mid)
+			b.rect(x+0.09, 0.32, 0.14, 0.09, matDark.mid)
 		}
 	}
-	b.block(matSteel, 0.12, -0.64, -0.6, 1.28, 0.46)
-	b.rect(-0.58, -0.47, 1.16, 0.09, b.acc.mid)
+	b.block(matSteel, 0.12, -0.66, -0.6, 1.32, 0.44)
+	b.rect(-0.6, -0.48, 1.2, 0.09, b.acc.mid)
 	if !b.tiny() {
-		b.rect(-0.5, -0.31, 0.3, 0.07, matSteel.lo)
-		b.rect(0.2, -0.31, 0.3, 0.07, matSteel.lo)
+		b.rect(-0.5, -0.32, 0.3, 0.07, matSteel.lo)
+		b.rect(0.2, -0.32, 0.3, 0.07, matSteel.lo)
 	}
 }
 
@@ -499,7 +511,7 @@ func menderHubMotion(b *bpen) {
 		x, y := 0.74*cosf(a), 0.1+0.66*sinf(a)
 		if !b.lit {
 			// Parked on the court.
-			x, y = -0.14+0.14*float32(i), 0.47
+			x, y = -0.15+0.15*float32(i), 0.52
 		}
 		const s = 0.065
 		b.poly(inkLine, x-s-0.03, y, x, y-s-0.03, x+s+0.03, y, x, y+s+0.03)
@@ -521,8 +533,7 @@ func flakBody(b *bpen) {
 		b.block(matDark, 0.03, -0.52, 0.1, 0.17, 0.26)
 	}
 	b.ring(0, 0, 0.47, 0.07, 1.2, b.acc.mid)
-	b.circle(0, 0, 0.4, inkLine)
-	b.circle(0, 0, 0.37, matDark.mid)
+	b.well(0, 0, 0.385, matDark.mid)
 }
 
 func flakMotion(b *bpen) {
@@ -532,13 +543,16 @@ func flakMotion(b *bpen) {
 	}
 	f := b.frame(ang)
 	b.shadowCircle(0, 0, 0.27, 0.1)
-	for _, y := range [2]float32{-0.115, 0.115} {
-		f.line(0.1, y, 0.76, y, 0.15, 2.6, inkLine)
-		f.line(0.1, y, 0.63, y, 0.08, 1.2, matSteel.mid)
+	for _, y := range [2]float32{-0.12, 0.12} {
+		f.line(0.1, y, 0.78, y, 0.17, 2.8, inkLine)
+		f.line(0.1, y, 0.75, y, 0.1, 1.2, matIron.mid)
+		f.line(0.1, y-0.025, 0.62, y-0.025, 0.04, 0.8, matSteel.hi)
+		f.line(0.64, y, 0.75, y, 0.13, 1.6, matDark.mid)
 	}
-	f.poly(inkLine, -0.27, -0.27, 0.23, -0.27, 0.3, -0.16, 0.3, 0.16, 0.23, 0.27, -0.27, 0.27)
-	f.poly(matSteel.mid, -0.23, -0.23, 0.21, -0.23, 0.26, -0.15, 0.26, 0.15, 0.21, 0.23, -0.23, 0.23)
-	f.edges(matSteel, -0.23, -0.23, 0.21, -0.23, 0.26, -0.15, 0.26, 0.15, 0.21, 0.23, -0.23, 0.23)
+	house := [...]float32{-0.25, -0.25, 0.22, -0.25, 0.28, -0.155, 0.28, 0.155, 0.22, 0.25, -0.25, 0.25}
+	f.poly(matSteel.mid, house[:]...)
+	f.edges(matSteel, house[:]...)
+	f.outline(inkLine, max(b.ow()*1.3, 0.045), 1.4, house[:]...)
 	f.circle(-0.03, 0, 0.11, inkLine)
 	f.circle(-0.03, 0, 0.08, b.acc.mid)
 }
@@ -582,8 +596,7 @@ func lanceMotion(b *bpen) {
 		f.line(x, -0.12, x, 0.12, 0.06, 1.2, inkLine)
 		f.line(x, -0.09, x, 0.09, 0.03, 0.8, b.acc.mid)
 	}
-	f.circle(0, 0, 0.15, inkLine)
-	f.circle(0, 0, 0.12, matSteel.mid)
+	f.drum(matSteel, 0, 0, 0, 0.135)
 	f.circle(0.62, 0, 0.05, b.lamp(colLumenHi))
 	if b.lit {
 		v := pulse(b.t, 1.6, 0.4, 1)
@@ -683,7 +696,7 @@ func massDriverMotion(b *bpen) {
 	const period = 3.2
 	u := frac(b.t/period) * 7
 	i := int(u)
-	if i < len(massDriverCoils) {
+	if i >= 0 && i < len(massDriverCoils) {
 		x := massDriverCoils[i]
 		f.line(x, -0.155, x, 0.155, 0.055, 1, gfx.RGB(0xFFE9A8))
 		f.glow(x, 0, 0.3, alpha(colHazard, 0.7))

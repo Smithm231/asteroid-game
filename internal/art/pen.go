@@ -110,12 +110,6 @@ func (p *pen) line(x0, y0, x1, y1, width, minPx float32, c gfx.Color) {
 	p.cv.Line(a.X, a.Y, b.X, b.Y, p.w(width, minPx), p.col(c))
 }
 
-// lineR strokes one segment with round caps.
-func (p *pen) lineR(x0, y0, x1, y1, width, minPx float32, c gfx.Color) {
-	a, b := p.pt(x0, y0), p.pt(x1, y1)
-	p.cv.StrokeLine(a.X, a.Y, b.X, b.Y, gfx.Stroke{Width: p.w(width, minPx), Cap: gfx.CapRound}, p.col(c))
-}
-
 // rect fills an axis-aligned rectangle given by its top-left corner and
 // size. In an unturned frame its edges are snapped to pixels (crisp); in a
 // turned frame it becomes a polygon.
@@ -133,21 +127,10 @@ func (p *pen) quad(x, y, w, h float32, c gfx.Color) {
 	p.poly(c, x, y, x+w, y, x+w, y+h, x, y+h)
 }
 
-// rectC is rect given by centre and half extents.
-func (p *pen) rectC(cx, cy, hw, hh float32, c gfx.Color) {
-	p.rect(cx-hw, cy-hh, 2*hw, 2*hh, c)
-}
-
 // circle fills a disc.
 func (p *pen) circle(x, y, r float32, c gfx.Color) {
 	q := p.pt(x, y)
 	p.cv.FillCircle(q.X, q.Y, r*p.k, p.col(c))
-}
-
-// circleV fills a disc with a vertical gradient.
-func (p *pen) circleV(x, y, r float32, top, bottom gfx.Color) {
-	q := p.pt(x, y)
-	p.cv.FillCircleV(q.X, q.Y, r*p.k, p.col(top), p.col(bottom))
 }
 
 // ring strokes a circle.
@@ -160,23 +143,6 @@ func (p *pen) ring(x, y, r, width, minPx float32, c gfx.Color) {
 func (p *pen) arc(x, y, r, a0, a1, width, minPx float32, c gfx.Color) {
 	q := p.pt(x, y)
 	p.cv.Arc(q.X, q.Y, r*p.k, a0+p.ang, a1+p.ang, p.w(width, minPx), p.col(c))
-}
-
-// arcR is arc with round caps.
-func (p *pen) arcR(x, y, r, a0, a1, width, minPx float32, c gfx.Color) {
-	q := p.pt(x, y)
-	p.cv.StrokeArc(q.X, q.Y, r*p.k, a0+p.ang, a1+p.ang, gfx.Stroke{Width: p.w(width, minPx), Cap: gfx.CapRound}, p.col(c))
-}
-
-// sector fills a pie slice.
-func (p *pen) sector(x, y, r, a0, a1 float32, c gfx.Color) {
-	q := p.pt(x, y)
-	p.cv.FillSector(q.X, q.Y, r*p.k, a0+p.ang, a1+p.ang, p.col(c))
-}
-
-// ngon fills a regular polygon with n corners, the first at angle a0.
-func (p *pen) ngon(x, y, r float32, n int, a0 float32, c gfx.Color) {
-	p.cv.FillPoly(p.ngonPts(x, y, r, n, a0), p.col(c))
 }
 
 // ngonLine strokes a regular polygon.
@@ -193,8 +159,8 @@ func (p *pen) ngonPts(x, y, r float32, n int, a0 float32) []gfx.Pt {
 	return ptsBuf
 }
 
-// glow adds a soft light; it ignores the tone filter's hue but is dropped
-// altogether by pens that are marked dark through a nil-returning tone.
+// glow adds a soft light. It bypasses the tone filter: callers that draw
+// unlit variants leave their glows out.
 func (p *pen) glow(x, y, r float32, c gfx.Color) {
 	q := p.pt(x, y)
 	p.cv.Glow(q.X, q.Y, r*p.k, c)
@@ -383,6 +349,15 @@ func smooth(t float32) float32 {
 // seconds.
 func pulse(t, period, lo, hi float32) float32 {
 	return lo + (hi-lo)*(0.5+0.5*sinf(t*2*math.Pi/period))
+}
+
+// finite returns v, or 0 when v is NaN or infinite: animation clocks and
+// angles from the caller are never allowed to poison the geometry.
+func finite(v float32) float32 {
+	if v != v || v > math.MaxFloat32 || v < -math.MaxFloat32 {
+		return 0
+	}
+	return v
 }
 
 const (

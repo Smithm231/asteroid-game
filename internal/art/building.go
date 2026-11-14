@@ -41,7 +41,6 @@ var (
 	matCream  = mat(0xF3ECDA, 0xD4CBB3, 0x9A917B) // ceramic shells
 	matCopper = mat(0xE7AB7C, 0xB7714A, 0x713F2A) // hot pipework
 	matSolar  = mat(0x5B84D0, 0x27468A, 0x142550) // collector cells
-	matGlass  = mat(0x9FDCEF, 0x3E7F9B, 0x1B3C50) // glazing
 
 	colWindow    = gfx.RGB(0xFFDF9A) // lit window
 	colWindowOff = gfx.RGB(0x1B2130) // dark window
@@ -63,16 +62,32 @@ type bpen struct {
 	lit  bool    // lights are on
 	t    float32 // animation clock, seconds
 	unit float32 // pixels per unit, for level of detail
+	ship bool    // the unit is a ship length, not a hex radius
 }
 
 // big reports whether there is room for fine detail.
-func (b *bpen) big() bool { return b.unit >= 26 }
+func (b *bpen) big() bool {
+	if b.ship {
+		return b.unit >= 40
+	}
+	return b.unit >= 26
+}
 
 // tiny reports whether only the boldest shapes survive.
-func (b *bpen) tiny() bool { return b.unit < 13 }
+func (b *bpen) tiny() bool {
+	if b.ship {
+		return b.unit < 20
+	}
+	return b.unit < 13
+}
 
 // ow is the outline width in units.
-func (b *bpen) ow() float32 { return max(0.035, 1*b.px) }
+func (b *bpen) ow() float32 {
+	if b.ship {
+		return max(0.03, 0.7*b.px)
+	}
+	return max(0.035, 1*b.px)
+}
 
 // bw is the bevel width in units.
 func (b *bpen) bw() float32 { return max(0.05, 1*b.px) }
@@ -210,24 +225,23 @@ const (
 func (b *bpen) drum(m mat3, h, x, y, r float32) {
 	b.shadowCircle(x, y, r, h)
 	o := b.ow()
-	b.circle(x, y, r+o/2, inkLine)
-	b.circle(x, y, r-o/2, m.mid)
+	b.circle(x, y, r, m.mid)
 	bw := b.bw()
 	if r > 2.5*bw {
 		rr := r - o/2 - bw/2
 		b.arc(x, y, rr, litAngle-1.0, litAngle+1.0, bw, 1, m.hi)
 		b.arc(x, y, rr, shadeAngle-1.0, shadeAngle+1.0, bw, 1, m.lo)
 	}
+	b.ring(x, y, r, o, 1, inkLine)
 }
 
 // dome draws a hemisphere seen from above.
 func (b *bpen) dome(m mat3, h, x, y, r float32) {
 	b.shadowCircle(x, y, r, h)
-	o := b.ow()
-	b.circle(x, y, r+o/2, inkLine)
-	b.circle(x, y, r-o/2, m.lo)
+	b.circle(x, y, r, m.lo)
 	b.circle(x+lightX*r*0.14, y+lightY*r*0.14, r*0.80, m.mid)
 	b.circle(x+lightX*r*0.38, y+lightY*r*0.38, r*0.36, m.hi)
+	b.ring(x, y, r, b.ow(), 1, inkLine)
 }
 
 // pill draws a horizontal or vertical capsule (a cylinder lying on its
@@ -235,53 +249,60 @@ func (b *bpen) dome(m mat3, h, x, y, r float32) {
 func (b *bpen) pill(m mat3, h, x0, y0, x1, y1, r float32) {
 	o := b.ow()
 	horizontal := y0 == y1
+	body := func(dx, dy float32, c gfx.Color) {
+		b.circle(x0+dx, y0+dy, r, c)
+		b.circle(x1+dx, y1+dy, r, c)
+		if horizontal {
+			b.quad(x0+dx, y0-r+dy, x1-x0, 2*r, c)
+		} else {
+			b.quad(x0-r+dx, y0+dy, 2*r, y1-y0, c)
+		}
+	}
 	if h > 0 {
-		sx, sy := h*shadowDX, h*shadowDY
-		b.circle(x0+sx, y0+sy, r, inkShadow)
-		b.circle(x1+sx, y1+sy, r, inkShadow)
-		if horizontal {
-			b.quad(x0+sx, y0-r+sy, x1-x0, 2*r, inkShadow)
-		} else {
-			b.quad(x0-r+sx, y0+sy, 2*r, y1-y0, inkShadow)
-		}
+		body(h*shadowDX, h*shadowDY, inkShadow)
 	}
-	for pass := 0; pass < 2; pass++ {
-		rr, c := r+o/2, inkLine
-		if pass == 1 {
-			rr, c = r-o/2, m.mid
-		}
-		b.circle(x0, y0, rr, c)
-		b.circle(x1, y1, rr, c)
-		if horizontal {
-			b.quad(x0, y0-rr, x1-x0, 2*rr, c)
-		} else {
-			b.quad(x0-rr, y0, 2*rr, y1-y0, c)
-		}
-	}
+	body(0, 0, m.mid)
 	// A lying cylinder is lightest along its upper-left flank and darkest
 	// along the opposite one.
 	bw := max(r*0.3, b.bw())
 	if horizontal {
 		b.quad(x0, y0-r+o/2+bw*0.5, x1-x0, bw, m.hi)
 		b.quad(x0, y0+r-o/2-bw*1.3, x1-x0, bw, m.lo)
+		b.arc(x0, y0, r, pi/2, 3*pi/2, o, 1, inkLine)
+		b.arc(x1, y1, r, -pi/2, pi/2, o, 1, inkLine)
+		b.line(x0, y0-r, x1, y1-r, o, 1, inkLine)
+		b.line(x0, y0+r, x1, y1+r, o, 1, inkLine)
 	} else {
 		b.quad(x0-r+o/2+bw*0.5, y0, bw, y1-y0, m.hi)
 		b.quad(x0+r-o/2-bw*1.3, y0, bw, y1-y0, m.lo)
+		b.arc(x0, y0, r, pi, 2*pi, o, 1, inkLine)
+		b.arc(x1, y1, r, 0, pi, o, 1, inkLine)
+		b.line(x0-r, y0, x1-r, y1, o, 1, inkLine)
+		b.line(x0+r, y0, x1+r, y1, o, 1, inkLine)
 	}
+}
+
+// colPit is the dark at the bottom of shafts, stacks and wells.
+var colPit = gfx.RGB(0x0D0F16)
+
+// well draws a round opening: its floor in c inside an ink rim.
+func (b *bpen) well(x, y, r float32, c gfx.Color) {
+	b.circle(x, y, r, c)
+	b.ring(x, y, r, b.ow(), 1.2, inkLine)
 }
 
 // window draws a small light with a faint halo.
 func (b *bpen) window(x, y, w, h float32, c gfx.Color) {
 	b.rect(x-w/2, y-h/2, w, h, b.lamp(c))
 	if b.lit && !b.tiny() {
-		b.glow(x, y, max(w, h)*1.8, alpha(c, 0.35))
+		b.glow(x, y, max(w, h)*1.5, alpha(c, 0.16))
 	}
 }
 
 // lampDot draws a round light with a halo.
 func (b *bpen) lampDot(x, y, r float32, c gfx.Color) {
 	b.circle(x, y, r, b.lamp(c))
-	b.halo(x, y, r*3.5, alpha(c, 0.55))
+	b.halo(x, y, r*3, alpha(c, 0.3))
 }
 
 // buildingArt holds the two layers of a kind.
@@ -302,7 +323,7 @@ var buildingArts [model.NumBuildingKinds]buildingArt
 var (
 	spritesSmall  = gfx.NewSpriteCache(1024) // up to 96 px a side
 	spritesMedium = gfx.NewSpriteCache(256)  // up to 256 px
-	spritesLarge  = gfx.NewSpriteCache(32)   // anything bigger
+	spritesLarge  = gfx.NewSpriteCache(24)   // anything bigger
 )
 
 // Domains keep the ids of the different kinds of sprites apart.
@@ -313,6 +334,7 @@ const (
 	domRubble
 	domBadge
 	domGood
+	domIcon
 )
 
 // sprite returns the cached sprite id of wpx × hpx pixels, rendering it with
@@ -345,7 +367,7 @@ func ReleaseSprites() {
 
 // maxUnitPx is the largest unit size sprites are rendered at; bigger
 // pictures are stretched from it.
-const maxUnitPx = 384
+const maxUnitPx = 256
 
 // bucketPx quantises a size in pixels so that a continuous zoom produces a
 // bounded number of distinct sprites: whole pixels when small, coarser steps
@@ -363,7 +385,7 @@ func bucketPx(ps float32) float32 {
 	case ps < 256:
 		return roundf(ps/8) * 8
 	default:
-		return min(roundf(ps/16)*16, maxUnitPx)
+		return maxUnitPx
 	}
 }
 
@@ -372,6 +394,7 @@ const (
 	varLit      = iota // running: lights on, motion layer left out
 	varDark            // lights out, motion layer baked at rest
 	varDerelict        // dark, cold, broken
+	varGhost           // blueprint drawing of the finished building
 )
 
 // spriteHalf is the half extent of a building sprite in units: the art
@@ -388,9 +411,12 @@ func buildingSprite(cv *gfx.Canvas, kind model.BuildingKind, accent gfx.Color, u
 		b := bpen{pen: newPen(sc, c, c, unitPx/s), unit: unitPx}
 		b.acc = matOf(accent)
 		b.lit = variant == varLit
-		if variant == varDerelict {
+		switch variant {
+		case varDerelict:
 			b.acc = matOf(gfx.RGB(0x6C727C))
 			b.tone = derelictTone
+		case varGhost:
+			b.tone = ghostTone
 		}
 		art := buildingArts[kind]
 		if art.body != nil {
@@ -402,20 +428,35 @@ func buildingSprite(cv *gfx.Canvas, kind model.BuildingKind, accent gfx.Color, u
 		if variant == varDerelict {
 			dmg = 4
 		}
-		drawDamage(&b, kind, dmg)
+		if variant != varGhost {
+			drawDamage(&b, kind, dmg)
+		}
 	})
 }
 
-// derelictTone turns any colour into its dead version: mostly grey, dark and
-// a little cold.
+// derelictTone turns any colour into its dead version: mostly grey, darker
+// and a little cold.
 func derelictTone(c gfx.Color) gfx.Color {
 	if c == inkLine || c == inkShadow {
 		return c
 	}
-	d := desat(c, 0.78)
-	d = gfx.Darken(d, 0.42)
-	cold := gfx.Color{R: 0x2A, G: 0x33, B: 0x45, A: c.A}
-	return gfx.Lerp(d, cold, 0.22)
+	d := desat(c, 0.82)
+	d = gfx.Darken(d, 0.3)
+	cold := gfx.Color{R: 0x36, G: 0x41, B: 0x58, A: c.A}
+	return gfx.Lerp(d, cold, 0.25)
+}
+
+// ghostTone turns a building into a drafting-table drawing of itself: pale
+// blue lines, faint washes for the faces, no shadows.
+func ghostTone(c gfx.Color) gfx.Color {
+	switch c {
+	case inkShadow:
+		return gfx.Color{}
+	case inkLine:
+		return gfx.Color{R: 0x9C, G: 0xD3, B: 0xF7, A: 0xE6}
+	}
+	a := (0.03 + 0.13*gfx.Luma(c)) * float32(c.A) / 255
+	return gfx.WithAlpha(colBlueprint, a)
 }
 
 // damageLevel quantises BuildingLook.Damage into the four baked levels.
@@ -444,44 +485,48 @@ func drawDamage(b *bpen, kind model.BuildingKind, level int) {
 		return
 	}
 	r := newRnd(uint64(kind)*977 + 13)
-	scorch := gfx.Color{R: 0x0C, G: 0x0B, B: 0x0D, A: 0xB8}
-	n := []int{0, 2, 4, 6, 6}[level]
-	for i := 0; i < n; i++ {
+	scorch := gfx.Color{R: 0x12, G: 0x0E, B: 0x10, A: 0xC8}
+	crack := alpha(inkLine, 0.92)
+	burns := [...]int{0, 1, 3, 5, 2}[level]
+	cracks := [...]int{0, 2, 3, 5, 6}[level]
+	for i := 0; i < len(damageSpots); i++ {
 		sp := damageSpots[i]
 		x, y := sp[0]+r.in(-0.06, 0.06), sp[1]+r.in(-0.06, 0.06)
-		rad := r.in(0.10, 0.16) + 0.02*float32(level)
-		// An irregular burn: a jagged blot with a softer skirt.
-		b.blob(x, y, rad*1.9, rad*1.9, alpha(scorch, 0.5))
-		var xy [20]float32
-		for k := 0; k < 10; k++ {
-			a := tau * float32(k) / 10
-			rr := rad * r.in(0.55, 1.1)
+		rad := r.in(0.06, 0.10) + 0.012*float32(min(level, 3))
+		var xy [18]float32
+		for k := 0; k < 9; k++ {
+			a := tau * float32(k) / 9
+			rr := rad * r.in(0.5, 1.15)
 			xy[2*k], xy[2*k+1] = x+rr*cosf(a), y+rr*sinf(a)
 		}
-		b.poly(scorch, xy[:]...)
-		// A crack running out of it.
 		a := r.in(0, tau)
-		cx, cy := x, y
 		var line [10]float32
+		cx, cy := x, y
 		for k := 0; k < 5; k++ {
 			line[2*k], line[2*k+1] = cx, cy
 			a += r.in(-0.9, 0.9)
-			step := r.in(0.08, 0.16)
+			step := r.in(0.07, 0.14)
 			cx, cy = cx+step*cosf(a), cy+step*sinf(a)
 		}
-		b.polyline(alpha(inkLine, 0.9), 0.035, 1, line[:]...)
-		if level < 4 && b.lit && i%2 == 0 && level >= 2 {
-			b.circle(x+rad*0.2, y-rad*0.1, max(0.03, 1.2*b.px), gfx.RGB(0xFF9A4A))
+		if i < burns {
+			b.blob(x, y, rad*2.1, rad*2.1, alpha(scorch, 0.42))
+			b.poly(scorch, xy[:]...)
+			if level < 4 && b.lit && level >= 2 && i%2 == 0 {
+				b.circle(x+rad*0.25, y-rad*0.1, max(0.028, 1.1*b.px), gfx.RGB(0xFF9A4A))
+			}
+		}
+		if i < cracks {
+			b.polyline(crack, 0.03, 1, line[:]...)
 		}
 	}
 	if level == 4 {
-		// Dust and fallen plating around a ruin.
-		for i := 0; i < 9; i++ {
+		// Plating fallen around a ruin.
+		for i := 0; i < 7; i++ {
 			a := r.in(0, tau)
-			d := r.in(0.35, 0.8)
+			d := r.in(0.45, 0.8)
 			x, y := d*cosf(a), d*sinf(a)
-			s := r.in(0.03, 0.07)
-			b.poly(alpha(gfx.RGB(0x151821), 0.9), x-s, y-s*0.4, x+s*0.7, y-s, x+s, y+s*0.6, x-s*0.5, y+s)
+			s := r.in(0.03, 0.06)
+			b.poly(alpha(gfx.RGB(0x1A1E28), 0.9), x-s, y-s*0.4, x+s*0.7, y-s, x+s, y+s*0.6, x-s*0.5, y+s)
 		}
 	}
 }
@@ -494,6 +539,7 @@ func drawBuilding(cv *gfx.Canvas, kind model.BuildingKind, cx, cy, size float32,
 	if cv == nil || cv.Dst == nil || !kind.Valid() || !(size > 0) {
 		return
 	}
+	look.Time = finite(look.Time)
 	s := canvasScale(cv)
 	ps := size * s
 	unitPx := bucketPx(ps)
@@ -526,16 +572,39 @@ func drawBuilding(cv *gfx.Canvas, kind model.BuildingKind, cx, cy, size float32,
 	default:
 		dmg := damageLevel(look.Damage)
 		put(buildingSprite(cv, kind, look.Accent, unitPx, varLit, dmg), nil)
-		b := bpen{pen: newPen(cv, x, y, unit), unit: unit * s, lit: true, t: look.Time}
+		// The pen lives in a package variable: handing a local to the
+		// motion function through its func value would move it to the
+		// heap for every building of every frame.
+		b := &livePen
+		*b = bpen{pen: newPen(cv, x, y, unit), unit: unit * s, lit: true, t: look.Time}
 		b.acc = matOf(look.Accent)
 		if m := buildingArts[kind].motion; m != nil {
-			m(&b)
+			m(b)
 		}
 		if dmg >= 2 {
-			drawFlicker(&b, kind, dmg, look.Time)
+			drawFlicker(b, kind, dmg, look.Time)
 		}
 	}
 }
+
+// iconGround is the colour of the tile under a building icon: the slate of a
+// Stony rock, sunk towards the panels it is shown on.
+var iconGround = gfx.Lerp(gfx.Default().RockColor(int(model.ClassStony)), gfx.RGB(0x12151F), 0.3)
+
+func drawBuildingIcon(cv *gfx.Canvas, kind model.BuildingKind, r gfx.Rect, accent gfx.Color) {
+	if cv == nil || cv.Dst == nil || !kind.Valid() || r.Empty() {
+		return
+	}
+	// A pointy-top hex of radius R is 2R tall and √3·R wide.
+	size := min(r.H/2, r.W/sqrt3)
+	x, y := snapCentre(cv, r.MidX(), r.MidY())
+	cv.FillHexV(x, y, size, gfx.Lighten(iconGround, 0.05), gfx.Darken(iconGround, 0.1))
+	cv.StrokeHex(x, y, size-0.5/canvasScale(cv), 1/canvasScale(cv), alpha(gfx.Lighten(iconGround, 0.25), 0.5))
+	drawBuilding(cv, kind, x, y, size*0.94, BuildingLook{Accent: accent, Progress: 1})
+}
+
+// livePen is the pen the motion layers of running buildings are drawn with.
+var livePen bpen
 
 // drawFlicker adds the unsteady glow of a fire inside a badly damaged
 // building.
@@ -555,50 +624,55 @@ func drawFlicker(b *bpen, kind model.BuildingKind, dmg int, t float32) {
 	}
 }
 
-// drawConstruction shows a building site: drafting marks around the plot,
-// the finished structure as a pale ghost, and the part already built
-// revealed from the ground line upwards.
+// drawConstruction shows a building site: a blueprint of the finished
+// structure on a dark plot, the part already built standing below the work
+// line, and drafting marks at the corners of the plot.
 func drawConstruction(cv *gfx.Canvas, kind model.BuildingKind, x, y, unit, unitPx float32, look BuildingLook, put func(*ebiten.Image, *gfx.ImageOpts)) {
 	p := clamp01(look.Progress)
-	s := canvasScale(cv)
-	b := bpen{pen: newPen(cv, x, y, unit), unit: unit * s, t: look.Time}
-	img := buildingSprite(cv, kind, look.Accent, unitPx, varDark, 0)
+	b := bpen{pen: newPen(cv, x, y, unit), unit: unitPx, t: look.Time}
 
-	// The plot: a dark bed with a dashed outline.
-	const plot = 0.80
+	// The plot: blueprint paper, with a mark at every corner.
+	const plot = 0.85
 	hex := gfx.HexPoints(x, y, plot*unit)
-	cv.FillPoly(hex[:], gfx.Color{R: 0x0D, G: 0x10, B: 0x18, A: 0x70})
-	dash := max(0.16*unit, 3/s)
-	cv.StrokePolyline(hex[:], true, gfx.Stroke{Width: b.w(0.03, 1), Dash: dash, Gap: dash * 0.7}, alpha(colBlueprint, 0.75))
+	cv.FillPoly(hex[:], gfx.Color{R: 0x0E, G: 0x1A, B: 0x2E, A: 0xA6})
+	cv.StrokePoly(hex[:], b.w(0.025, 1), alpha(colBlueprint, 0.35))
+	mw := b.w(0.04, 1)
+	for i, c := range hex {
+		a, n := hex[(i+5)%6], hex[(i+1)%6]
+		const l = 0.24
+		cv.Polyline([]gfx.Pt{
+			{X: c.X + (a.X-c.X)*l, Y: c.Y + (a.Y-c.Y)*l}, c,
+			{X: c.X + (n.X-c.X)*l, Y: c.Y + (n.Y-c.Y)*l},
+		}, mw, colHazard)
+	}
 
-	// The ghost of what is to come.
-	put(img, &gfx.ImageOpts{Tint: gfx.Color{R: 0x86, G: 0xC4, B: 0xF0, A: 0x58}})
-
-	// The built part, from the bottom of the plot up to the work line.
-	const top, bottom = -0.86, 0.90
-	lineY := bottom - (bottom-top)*p
+	// The drawing above the work line, the built part below it. The line
+	// starts at the bottom of the plot and climbs.
+	lineY := plot - 2*plot*p
+	ext := spriteHalf * unit
+	split := cv.Snap(y + lineY*unit)
+	cv.PushClip(gfx.R(x-ext, y-ext, 2*ext, split-(y-ext)))
+	put(buildingSprite(cv, kind, look.Accent, unitPx, varGhost, 0), nil)
+	cv.PopClip()
 	if p > 0 {
-		ext := spriteHalf * unit
-		cv.PushClip(gfx.R(x-ext, y+lineY*unit, 2*ext, ext-lineY*unit))
-		put(img, nil)
+		cv.PushClip(gfx.R(x-ext, split, 2*ext, y+ext-split))
+		put(buildingSprite(cv, kind, look.Accent, unitPx, varDark, 0), nil)
 		cv.PopClip()
 	}
 
-	// Scaffold: corner marks and the work line with its travelling head.
-	const hw = 0.74
-	c := colHazard
-	w := float32(0.035)
-	for _, sx := range [2]float32{-1, 1} {
-		for _, sy := range [2]float32{-1, 1} {
-			cx, cy := sx*hw, sy*0.78
-			b.line(cx, cy, cx-sx*0.2, cy, w, 1, c)
-			b.line(cx, cy, cx, cy-sy*0.2, w, 1, c)
-		}
-	}
+	// The work line, as wide as the plot is at that height, with its
+	// travelling head.
 	if p > 0 && p < 1 {
-		b.line(-hw, lineY, hw, lineY, w, 1, alpha(c, 0.9))
-		hx := hw * 0.86 * sinf(look.Time*2.3)
-		b.rect(hx-0.07, lineY-0.05, 0.14, 0.10, c)
-		b.glow(hx, lineY, 0.3, alpha(gfx.RGB(0xFFE9A8), 0.5+0.3*sinf(look.Time*31)))
+		ay := lineY
+		if ay < 0 {
+			ay = -ay
+		}
+		hw := min(plot*sqrt3/2, (plot-ay)*sqrt3)
+		if hw > 0.1 {
+			b.line(-hw, lineY, hw, lineY, 0.035, 1, alpha(colHazard, 0.95))
+			hx := (hw - 0.08) * sinf(look.Time*2.3)
+			b.rect(hx-0.07, lineY-0.045, 0.14, 0.09, gfx.RGB(0xFFF3C4))
+			b.glow(hx, lineY, 0.22, alpha(gfx.RGB(0xFFE9A8), 0.35+0.2*sinf(look.Time*31)))
+		}
 	}
 }

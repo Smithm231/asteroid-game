@@ -1,8 +1,6 @@
 package art
 
 import (
-	"math"
-
 	"drifthold/internal/gfx"
 	"drifthold/internal/model"
 )
@@ -48,10 +46,10 @@ var (
 )
 
 // frame returns b with its frame turned by a radians.
-func (b *bpen) frame(a float32) *bpen {
+func (b *bpen) frame(a float32) bpen {
 	c := *b
 	c.pen = b.pen.rotated(a)
-	return &c
+	return c
 }
 
 // hexXY returns the corners of a regular hexagon as x, y pairs; a0 is the
@@ -111,10 +109,8 @@ func (b *bpen) strut(x0, y0, x1, y1, width float32, c gfx.Color) {
 func keystoneBody(b *bpen) {
 	for i := 0; i < 3; i++ {
 		f := b.frame(-pi/2 + float32(i)*tau/3)
-		f.slab(matIron, 0.05, 0.56, -0.19, 0.93, -0.11, 0.93, 0.11, 0.56, 0.19)
-		if !b.tiny() {
-			f.poly(b.acc.mid, 0.78, -0.07, 0.88, -0.06, 0.88, 0.06, 0.78, 0.07)
-		}
+		f.slab(matIron, 0.05, 0.54, -0.26, 0.93, -0.115, 0.93, 0.115, 0.54, 0.26)
+		f.poly(b.acc.mid, 0.74, -0.12, 0.88, -0.07, 0.88, 0.07, 0.74, 0.12)
 	}
 	lower := hexXY(0, 0, 0.78, 0)
 	b.slab(matSteel, 0.11, lower[:]...)
@@ -128,9 +124,10 @@ func keystoneBody(b *bpen) {
 		for i := 0; i < 6; i++ {
 			a := float32(i)*tau/6 + tau/12
 			nx, ny := cosf(a), sinf(a)
-			for _, o := range [2]float32{-0.13, 0.13} {
-				x, y := 0.585*nx-o*ny, 0.585*ny+o*nx
-				b.lampDot(x, y, 0.032, colWindow)
+			for _, o := range [2]float32{-0.14, 0.14} {
+				x, y := 0.6*nx-o*ny, 0.6*ny+o*nx
+				b.circle(x, y, 0.036, inkLine)
+				b.circle(x, y, 0.022, b.lamp(colWindow))
 			}
 		}
 	}
@@ -144,14 +141,14 @@ func keystoneBody(b *bpen) {
 
 func keystoneMotion(b *bpen) {
 	// A double flash every 2.4 s.
-	ph := float32(math.Mod(float64(b.t), 2.4))
+	ph := wrap(b.t, 2.4)
 	on := ph < 0.14 || (ph > 0.32 && ph < 0.46)
 	if !b.lit {
 		b.circle(0, 0, 0.06, colWindowOff)
 		return
 	}
 	if on {
-		b.glow(0, 0, 0.62, alpha(gfx.RGB(0xFFE7B0), 0.75))
+		b.glow(0, 0, 0.46, alpha(gfx.RGB(0xFFE7B0), 0.6))
 		b.circle(0, 0, 0.075, gfx.RGB(0xFFF6DC))
 	} else {
 		b.glow(0, 0, 0.3, alpha(colLamp, 0.3))
@@ -168,22 +165,24 @@ func conduitBody(b *bpen) {
 	for i := 0; i < 6; i++ {
 		a := float32(i) * tau / 6
 		c, s := cosf(a), sinf(a)
-		b.line(0.2*c, 0.2*s, 0.868*c, 0.868*s, 0.21, 3, alpha(inkLine, 0.9))
-		b.line(0.2*c, 0.2*s, 0.868*c, 0.868*s, 0.12, 1.6, matDark.mid)
-		b.line(0.2*c, 0.2*s, 0.868*c, 0.868*s, 0.04, 0.9, matIron.hi)
+		b.line(0.2*c, 0.2*s, 0.868*c, 0.868*s, 0.13, 2.6, alpha(inkLine, 0.8))
+		b.line(0.2*c, 0.2*s, 0.868*c, 0.868*s, 0.065, 1.1, matIron.lo)
+		if !b.tiny() {
+			b.line(0.2*c, 0.2*s, 0.868*c, 0.868*s, 0.028, 0.8, matSteel.mid)
+		}
 	}
-	node := hexXY(0, 0, 0.34, -pi/2)
+	node := hexXY(0, 0, 0.3, -pi/2)
 	b.slab(matIron, 0.04, node[:]...)
-	b.ngonLine(0, 0, 0.2, 6, -pi/2, 0.04, 1, b.acc.mid)
+	b.ngonLine(0, 0, 0.17, 6, -pi/2, 0.04, 1, b.acc.mid)
 }
 
 func conduitMotion(b *bpen) {
 	if !b.lit {
-		b.circle(0, 0, 0.08, colWindowOff)
+		b.circle(0, 0, 0.07, colWindowOff)
 		return
 	}
 	v := pulse(b.t, 3.2, 0.45, 1)
-	b.circle(0, 0, 0.085, gfx.Lerp(b.acc.lo, b.acc.hi, v))
+	b.circle(0, 0, 0.07, gfx.Lerp(b.acc.lo, b.acc.hi, v))
 }
 
 // ---------------------------------------------------------------------------
@@ -237,8 +236,8 @@ func surveyMastBody(b *bpen) {
 	for i := 0; i < 3; i++ {
 		a := pi/2 + float32(i)*tau/3
 		x, y := 0.56*cosf(a), 0.56*sinf(a)
-		b.strut(0, 0, x, y, 0.07, matIron.hi)
-		b.drum(matDark, 0.03, x, y, 0.095)
+		b.strut(0, 0, x, y, 0.085, matSteel.mid)
+		b.drum(matIron, 0.03, x, y, 0.1)
 	}
 	// The mast is tall: its shadow is long.
 	b.line(0.05, 0.07, 0.42, 0.56, 0.09, 1.2, inkShadow)
@@ -250,7 +249,7 @@ func surveyMastMotion(b *bpen) {
 	a := b.t * 1.1
 	c, s := cosf(a), sinf(a)
 	if b.lit {
-		f := float32(math.Mod(float64(b.t), 2.6)) / 2.6
+		f := wrap(b.t, 2.6) / 2.6
 		b.ring(0, 0, 0.2+0.62*f, 0.035, 1, alpha(gfx.RGB(0xBFE9FF), 0.6*(1-f)))
 	}
 	b.strut(0.1*c, 0.1*s, 0.42*c, 0.42*s, 0.05, matSteel.hi)
@@ -311,16 +310,16 @@ func sunvaneMotion(b *bpen) {
 		return
 	}
 	// The red sun's reflection slides along every vane in step.
-	f := float32(math.Mod(float64(b.t), 6)) / 6
+	f := wrap(b.t, 6) / 6
 	if f > 0.5 {
 		return
 	}
 	u := f * 2
-	a := 0.55 * sinf(u*pi)
-	c := gfx.Color{R: 0xFF, G: 0xD9, B: 0xC2, A: uint8(255 * a)}
+	a := 0.7 * sinf(u*pi)
+	c := gfx.Color{R: 0xFF, G: 0xE6, B: 0xD6, A: uint8(255 * a)}
 	for i, r := range sunvaneRects {
 		x, y, w, h := r[0]+0.04, r[1]+0.04, r[2]-0.08, r[3]-0.08
-		const band = 0.07
+		const band = 0.05
 		switch i {
 		case 0, 2:
 			px := x + (w-band)*u
@@ -359,7 +358,7 @@ func thermalStackBody(b *bpen) {
 	b.rect(-0.6, -0.3, 0.1, 0.68, b.acc.mid)
 	for _, s := range thermalStacks {
 		b.drum(matIron, 0.3, s[0], s[1], 0.2)
-		b.circle(s[0], s[1], 0.125, inkLine)
+		b.well(s[0], s[1], 0.12, colPit)
 	}
 }
 
@@ -374,7 +373,7 @@ func thermalStackMotion(b *bpen) {
 		b.circle(s[0], s[1], 0.1, gfx.Lerp(colHot, colHotCore, v))
 		// Exhaust drifting up and to the right, thinning as it goes.
 		for k := 0; k < 3; k++ {
-			d := float32(math.Mod(float64(b.t*0.32+float32(k)/3+float32(i)*0.17), 1))
+			d := frac(b.t*0.32 + float32(k)/3 + float32(i)*0.17)
 			b.circle(s[0]+0.3*d, s[1]-0.62*d, 0.07+0.1*d, gfx.Color{R: 0xC8, G: 0xB8, B: 0xB0, A: uint8(70 * (1 - d))})
 		}
 	}
@@ -392,8 +391,7 @@ func lumenCoreBody(b *bpen) {
 	}
 	b.drum(matIron, 0.12, 0, 0, 0.7)
 	b.ring(0, 0, 0.575, 0.06, 1.2, b.acc.mid)
-	b.circle(0, 0, 0.47, inkLine)
-	b.circle(0, 0, 0.44, matDark.lo)
+	b.well(0, 0, 0.455, matDark.lo)
 	if !b.tiny() {
 		for i := 0; i < 6; i++ {
 			a := float32(i)*tau/6 + tau/12
@@ -437,18 +435,21 @@ func habitatBody(b *bpen) {
 		b.quad(x, y-0.225, 0.12, 0.45, b.acc.mid)
 		b.quad(x, y-0.225, 0.12, 0.09, b.acc.hi)
 		b.quad(x, y+0.135, 0.12, 0.09, b.acc.lo)
-		// Windows.
-		n, w := 4, float32(0.085)
-		if b.tiny() {
-			n, w = 3, 0.11
-		}
-		x0 := float32(-0.3)
+		// A dark glazing band with the cabin lights behind it.
+		x0 := float32(-0.34)
 		if i == 1 {
-			x0 = -0.42
+			x0 = -0.46
 		}
+		const bandW = 0.68
+		b.quad(x0, y-0.075, bandW, 0.15, colWindowOff)
+		n := 5
+		if b.tiny() {
+			n = 3
+		}
+		step := bandW / float32(n)
 		for k := 0; k < n; k++ {
-			wx := x0 + (float32(k)+0.5)*0.72/float32(n)
-			b.window(wx, y, w, 0.1, colWindow)
+			wx := x0 + (float32(k)+0.5)*step
+			b.window(wx, y, step*0.56, 0.09, gfx.RGB(0xFFCF70))
 		}
 	}
 }
@@ -474,9 +475,8 @@ func aeratorBody(b *bpen) {
 	b.slab(matSteel, 0.1,
 		x0+c, y0, x1-c, y0, x1, y0+c, x1, y1-c, x1-c, y1, x0+c, y1, x0, y1-c, x0, y0+c)
 	b.rect(-0.5, 0.415, 0.72, 0.075, b.acc.mid)
-	b.circle(-0.14, -0.04, 0.42, inkLine)
-	b.circle(-0.14, -0.04, 0.385, matDark.lo)
-	b.ring(-0.14, -0.04, 0.385, 0.04, 1, matIron.mid)
+	b.well(-0.14, -0.04, 0.405, matDark.lo)
+	b.ring(-0.14, -0.04, 0.37, 0.035, 1, matIron.mid)
 }
 
 func aeratorMotion(b *bpen) {
@@ -524,8 +524,8 @@ func greenhouseBody(b *bpen) {
 	b.rect(-0.7, -0.035, 1.4, 0.025, b.acc.hi)
 	if b.lit && !b.tiny() {
 		for _, x := range [4]float32{-0.5, -0.165, 0.165, 0.5} {
-			b.glow(x, -0.18, 0.16, alpha(gfx.RGB(0xF4FFD0), 0.35))
-			b.glow(x, 0.18, 0.16, alpha(gfx.RGB(0xF4FFD0), 0.3))
+			b.glow(x, -0.18, 0.15, alpha(gfx.RGB(0xF4FFD0), 0.2))
+			b.glow(x, 0.18, 0.15, alpha(gfx.RGB(0xF4FFD0), 0.16))
 		}
 	}
 }
@@ -536,7 +536,7 @@ func greenhouseMotion(b *bpen) {
 	}
 	// Grow-lamps breathing.
 	v := pulse(b.t, 5, 0, 1)
-	b.glow(0, 0, 0.7, alpha(gfx.RGB(0xC8F5A0), 0.10+0.14*v))
+	b.glow(0, 0, 0.7, alpha(gfx.RGB(0xC8F5A0), 0.05+0.11*v))
 }
 
 // ---------------------------------------------------------------------------
@@ -577,7 +577,8 @@ func commonsBody(b *bpen) {
 	b.arc(0, commonsCY-0.02, 0.3-b.ow()/2-b.bw()/2, litAngle-0.8, litAngle+0.6, b.bw(), 1, b.acc.hi)
 	for i := 0; i < 6; i++ {
 		x, y := commonsLantern(i)
-		b.lampDot(x, y, 0.04, colLamp)
+		b.circle(x, y, 0.062, alpha(inkLine, 0.8))
+		b.lampDot(x, y, 0.04, gfx.RGB(0xFFB54A))
 	}
 }
 
@@ -591,7 +592,7 @@ func commonsMotion(b *bpen) {
 		return
 	}
 	// One lantern after another flares a little.
-	i := int(math.Mod(float64(b.t*1.5), 6))
+	i := int(wrap(b.t*1.5, 6)) % 6
 	x, y := commonsLantern(i)
 	b.glow(x, y, 0.22, alpha(colLamp, 0.7))
 	b.circle(x, y, 0.05, gfx.RGB(0xFFF0C8))

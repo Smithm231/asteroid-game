@@ -136,8 +136,11 @@ func (b *Building) Completed() bool { return b != nil && b.State == StateActive 
 // on. This is what the rules call an "active" building (an active Silo adds
 // storage, an active Dock Ring adds berths, ...). It does not consider power
 // or staff; use Working for that.
+//
+// A Keystone cannot be switched off: its Enabled flag is ignored, so a colony
+// never loses the Keystone's power, housing, storage and berths.
 func (b *Building) Operational() bool {
-	return b != nil && b.State == StateActive && b.Enabled
+	return b != nil && b.State == StateActive && (b.Enabled || b.Kind == Keystone)
 }
 
 // Working reports whether the building is operational and ran with non-zero

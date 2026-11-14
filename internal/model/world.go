@@ -219,7 +219,9 @@ func (w *World) AITick(f FactionID) bool {
 }
 
 // FlareActive reports whether a solar flare is in progress.
-func (w *World) FlareActive() bool { return w.Tick < w.Events.FlareEndTick }
+func (w *World) FlareActive() bool {
+	return w.Tick >= w.Events.FlareStartTick && w.Tick < w.Events.FlareEndTick
+}
 
 // SensorMul returns the factor applied to every sensor range right now:
 // FlareSensorMul during a solar flare, 1 otherwise.
@@ -681,7 +683,10 @@ func Hostile(a, b FactionID) bool {
 
 // Enqueue appends a command to Pending; it is executed at the start of the
 // next tick.
+//
+// The command's Ships slice is copied, so the caller may reuse its buffer.
 func (w *World) Enqueue(c Command) {
+	c.Ships = slices.Clone(c.Ships)
 	w.Pending = append(w.Pending, c)
 }
 
@@ -690,6 +695,15 @@ func (w *World) Enqueue(c Command) {
 // about (NoRock for none); format and args are as for fmt.Sprintf. The log
 // is capped at MaxLogEntries; the oldest entries are dropped.
 func (w *World) Logf(faction FactionID, sev Severity, rock RockID, format string, args ...any) {
+	w.LogText(faction, sev, rock, fmt.Sprintf(format, args...))
+}
+
+// LogText appends a finished message to the log (see Logf for the arguments).
+//
+// When the log is full the oldest entry addressed to a computer-controlled
+// faction is dropped first, so that rivals' chatter never pushes out what the
+// human player can read; only when there is none is the oldest entry dropped.
+func (w *World) LogText(faction FactionID, sev Severity, rock RockID, text string) {
 	w.LogSeq++
 	w.Log = append(w.Log, LogEntry{
 		Seq:     w.LogSeq,
@@ -697,12 +711,17 @@ func (w *World) Logf(faction FactionID, sev Severity, rock RockID, format string
 		Faction: faction,
 		Sev:     sev,
 		Rock:    rock,
-		Text:    fmt.Sprintf(format, args...),
+		Text:    text,
 	})
-	if extra := len(w.Log) - MaxLogEntries; extra > 0 {
-		n := copy(w.Log, w.Log[extra:])
-		clear(w.Log[n:])
-		w.Log = w.Log[:n]
+	for len(w.Log) > MaxLogEntries {
+		drop := 0
+		for i, e := range w.Log {
+			if f := w.Faction(e.Faction); f != nil && f.IsAI {
+				drop = i
+				break
+			}
+		}
+		w.Log = slices.Delete(w.Log, drop, drop+1)
 	}
 }
 

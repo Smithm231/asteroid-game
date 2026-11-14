@@ -81,6 +81,9 @@ func (a Vec2) Toward(b Vec2, step float64) Vec2 {
 
 // Clamp returns x limited to the range [lo, hi].
 func Clamp(x, lo, hi float64) float64 {
+	if x != x { // NaN
+		return lo
+	}
 	if x < lo {
 		return lo
 	}

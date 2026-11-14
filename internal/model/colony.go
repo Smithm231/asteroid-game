@@ -246,6 +246,12 @@ func (c *Colony) RollRates(dt float64) {
 	for g := range c.Produced {
 		c.Produced[g] += alpha * (c.ProducedAcc[g]*toCycle - c.Produced[g])
 		c.Consumed[g] += alpha * (c.ConsumedAcc[g]*toCycle - c.Consumed[g])
+		if c.Produced[g] < 1e-6 {
+			c.Produced[g] = 0
+		}
+		if c.Consumed[g] < 1e-6 {
+			c.Consumed[g] = 0
+		}
 	}
 	c.ProducedAcc.Clear()
 	c.ConsumedAcc.Clear()

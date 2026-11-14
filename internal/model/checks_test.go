@@ -200,6 +200,11 @@ func TestFoundAndDissolveColony(t *testing.T) {
 	// Losing a colony: remove the Keystone, then dissolve.
 	r0 := w.Rock(0)
 	before := len(r0.Buildings)
+	for _, b := range r0.Buildings {
+		if b.Constructing() {
+			before-- // unfinished sites collapse instead of becoming derelicts
+		}
+	}
 	keystone := r0.Keystone()
 	if r0.RemoveBuilding(keystone.ID) == nil {
 		t.Fatal("could not remove the Keystone")

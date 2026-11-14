@@ -128,6 +128,10 @@ func (s Stock) Shortage(cost Stock) error {
 	return nil
 }
 
+// Refundable returns the part of a cost that demolition and salvage refunds
+// cover: its Alloy, Silica and Parts.
+func (s Stock) Refundable() Stock { return s.Only(Alloy, Silica, Parts) }
+
 // Total returns the sum of all amounts.
 func (s Stock) Total() float64 {
 	t := 0.0
@@ -175,6 +179,9 @@ func (s Stock) String() string {
 // ("35"), everything else rounded to one decimal ("0.5", "12.3").
 func FormatQty(v float64) string {
 	r := math.Round(v*10) / 10
+	if r == 0 {
+		return "0"
+	}
 	if r == math.Trunc(r) {
 		return strconv.FormatFloat(r, 'f', 0, 64)
 	}

@@ -1,5 +1,7 @@
 package model
 
+import "slices"
+
 // This file holds the ownership checks that every command handler starts
 // with. Using them keeps the error a player sees for the same mistake
 // identical across systems.
@@ -134,7 +136,15 @@ func (r *Rock) DissolveColony() (lost *Colony, owner FactionID) {
 	lost, owner = r.Colony, r.Owner
 	r.Owner = NoFaction
 	r.Colony = nil
-	for _, b := range r.Buildings {
+	for _, b := range slices.Clone(r.Buildings) {
+		if b.Constructing() {
+			// An unfinished site has no value as a derelict: it collapses.
+			r.RemoveBuilding(b.ID)
+			if t := r.TileAt(b.Hex); t != nil {
+				t.Rubble = true
+			}
+			continue
+		}
 		b.MakeDerelict()
 	}
 	return lost, owner

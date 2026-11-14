@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -102,19 +103,19 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 	}
 	extent := cam.hex * 1.8 * float32(rock.Radius+2)
 	cam.off.X = max(-extent, min(extent, cam.off.X))
-	cam.off.Y = max(-extent, min(extent, cam.off.Y))
+	cam.off.Y = max(-extent*art.Tilt, min(extent*art.Tilt, cam.off.Y))
 	origin := gfx.P(cx+cam.off.X, cy+cam.off.Y)
 	hex := cam.hex
 	at := func(h model.Hex) (float32, float32) {
-		p := model.HexToPixel(h, float64(hex))
-		return origin.X + float32(p.X), origin.Y + float32(p.Y)
+		p := art.HexPos(origin, h, hex)
+		return p.X, p.Y
 	}
 
 	// Ships in orbit, laid out on a ring around the rock.
 	ships := g.orbitLayout(rock, origin, hex)
 
 	// What is under the cursor?
-	hoverHex := model.PixelToHex(model.Vec2{X: float64(in.X - origin.X), Y: float64(in.Y - origin.Y)}, float64(hex))
+	hoverHex := art.PickHex(origin, in.X, in.Y, hex)
 	tile := rock.TileAt(hoverHex)
 	onRock := hover && tile != nil && tile.Terrain.Solid()
 	var hoverFleet model.FleetID
@@ -202,6 +203,22 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 		dir := model.Vec2{X: -star.X, Y: -star.Y}.Norm()
 		a.backdrop.Draw(cv, gfx.BackdropView{X: -cam.off.X * 0.3, Y: -cam.off.Y * 0.3,
 			EmberX: cx + float32(dir.X)*1500, EmberY: cy + float32(dir.Y)*1500, EmberRadius: 1500, Time: clock})
+		size := max(11, min(22, hex*0.8))
+		drawShips := func(near bool) {
+			for _, s := range ships {
+				if (s.y >= origin.Y) != near {
+					continue
+				}
+				col := th.FactionColor(int(s.owner))
+				if sel.kind == selFleet && sel.fleet == s.fleet {
+					cv.StrokeCircle(s.x, s.y, size*0.75, 1.5, th.Rule)
+				} else if hoverFleet == s.fleet {
+					cv.StrokeCircle(s.x, s.y, size*0.75, 1, gfx.Fade(th.Text, 0.5))
+				}
+				art.Ship(cv, s.kind, s.x, s.y, size, s.heading, col)
+			}
+		}
+		drawShips(false) // ships on the far side of the rock pass behind it
 		g.surface.Draw(cv, rock, origin, hex, me, deposit)
 
 		// Reach and coverage of the selected or pending structure.
@@ -209,7 +226,7 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 			for _, x := range h.Spiral(radius) {
 				if t := rock.TileAt(x); t != nil && t.Terrain.Solid() {
 					px, py := at(x)
-					cv.FillHex(px, py, hex*0.96, col)
+					art.TileFill(cv, px, py, hex, col)
 				}
 			}
 		}
@@ -229,11 +246,25 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 			}
 		}
 
-		for _, b := range rock.Buildings {
+		// Back to front, so that nearer structures overlap those behind.
+		order := append([]*model.Building(nil), rock.Buildings...)
+		sort.SliceStable(order, func(i, j int) bool {
+			a, b := order[i].Hex, order[j].Hex
+			if a.R != b.R {
+				return a.R < b.R
+			}
+			return a.Q < b.Q
+		})
+		for _, b := range order {
 			px, py := at(b.Hex)
-			if !cv.Visible(gfx.R(px-hex, py-hex, 2*hex, 2*hex)) {
+			if !cv.Visible(gfx.R(px-hex, py-2.5*hex, 2*hex, 3.5*hex)) {
 				continue
 			}
+			if sel.kind == selBuilding && sel.building == b.ID {
+				art.TileFill(cv, px, py, hex, gfx.Fade(th.Rule, 0.25))
+				art.TileStroke(cv, px, py, hex, 2, th.Rule)
+			}
+			top := art.BuildingTop(b.Kind, hex)
 			look := art.BuildingLook{
 				Accent: th.FactionColor(int(b.Owner)), Progress: float32(b.Progress), Derelict: b.Derelict(),
 				Off:    b.Completed() && !b.Working() && b.Kind != model.Conduit && b.Kind != model.Keystone,
@@ -260,13 +291,13 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 					ic = art.IconStorage
 				}
 				s := min(14, hex*0.62)
-				br := gfx.R(px+hex*0.28, py-hex*0.78, s, s)
+				br := gfx.R(px+hex*0.28, py-top-s*0.4, s, s)
 				cv.FillCircle(br.MidX(), br.MidY(), s*0.72, gfx.WithAlpha(th.Well, 0.9))
 				art.Icon(cv, ic, br, col)
 			}
 			if b.Completed() && b.HP < b.MaxHP*0.98 && hex >= 12 {
 				w := hex * 1.1
-				bar := gfx.R(px-w/2, py+hex*0.68, w, 3)
+				bar := gfx.R(px-w/2, py+hex*0.68*art.Tilt+1, w, 3)
 				cv.FillRect(bar, th.Well)
 				col := th.Good
 				if f := b.HPFrac(); f < 0.35 {
@@ -276,13 +307,10 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 				}
 				cv.FillRect(gfx.R(bar.X, bar.Y, bar.W*float32(b.HPFrac()), bar.H), col)
 			}
-			if sel.kind == selBuilding && sel.building == b.ID {
-				cv.StrokeHex(px, py, hex*0.97, 2, th.Rule)
-			}
 		}
 		if sel.kind == selTile && sel.rock == rock.ID {
 			px, py := at(sel.hex)
-			cv.StrokeHex(px, py, hex*0.97, 1.5, th.Text)
+			art.TileStroke(cv, px, py, hex, 1.5, th.Text)
 		}
 
 		// Placement ghost.
@@ -303,35 +331,24 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 			if def.ShieldRadius > 0 && placeErr == nil {
 				ring(hoverHex, def.ShieldRadius, gfx.Fade(th.Info, 0.10))
 			}
-			cv.FillHex(px, py, hex*0.96, gfx.Fade(col, 0.22))
+			art.TileFill(cv, px, py, hex, gfx.Fade(col, 0.22))
 			if placeErr == nil {
 				art.Building(cv, place, px, py, hex, art.BuildingLook{Accent: th.FactionColor(int(me)), Progress: 1, Off: true, Time: clock})
-				cv.FillHex(px, py, hex*0.96, gfx.Fade(th.Space, 0.35))
 			}
-			cv.StrokeHex(px, py, hex*0.97, 2, col)
+			art.TileStroke(cv, px, py, hex, 2, col)
 			if msg != "" {
 				st := th.Small().WithColor(col)
 				w, _ := cv.MeasureText(msg, st)
-				box := gfx.R(px-w/2-8, py+hex+6, w+16, 22)
+				box := gfx.R(px-w/2-8, py+hex*art.Tilt+8, w+16, 22)
 				cv.Panel(box, 4, gfx.CornersDiag, gfx.WithAlpha(th.Well, 0.92), col)
 				cv.TextIn(box, msg, st.Aligned(gfx.AlignCenter))
 			}
 		} else if onRock && !placing {
 			px, py := at(hoverHex)
-			cv.StrokeHex(px, py, hex*0.97, 1, gfx.Fade(th.Text, 0.35))
+			art.TileStroke(cv, px, py, hex, 1, gfx.Fade(th.Text, 0.35))
 		}
 
-		// Fleets in orbit.
-		size := max(11, min(22, hex*0.8))
-		for _, s := range ships {
-			col := th.FactionColor(int(s.owner))
-			if sel.kind == selFleet && sel.fleet == s.fleet {
-				cv.StrokeCircle(s.x, s.y, size*0.75, 1.5, th.Rule)
-			} else if hoverFleet == s.fleet {
-				cv.StrokeCircle(s.x, s.y, size*0.75, 1, gfx.Fade(th.Text, 0.5))
-			}
-			art.Ship(cv, s.kind, s.x, s.y, size, s.heading, col)
-		}
+		drawShips(true) // ships on the near side pass in front
 
 		// Effects.
 		for _, e := range fxs {
@@ -342,7 +359,7 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 			px, py := at(e.hex)
 			orbit := func() (float32, float32) {
 				r := hex * 1.732 * orbitRing(rock)
-				return origin.X + r*float32(math.Cos(float64(e.angle))), origin.Y + r*float32(math.Sin(float64(e.angle)))
+				return origin.X + r*float32(math.Cos(float64(e.angle))), origin.Y + r*float32(math.Sin(float64(e.angle)))*art.Tilt
 			}
 			switch e.kind {
 			case model.FXBuildDestroyed, model.FXSlugImpact:
@@ -353,9 +370,9 @@ func (g *Game) surfaceFrame(area gfx.Rect) {
 				ox, oy := orbit()
 				art.Explosion(cv, ox, oy, hex*1.2, ph)
 			case model.FXBuildDone:
-				cv.StrokeHex(px, py, hex*(1+ph*0.6), 2, gfx.Fade(th.Good, 1-ph))
+				art.TileStroke(cv, px, py, hex*(1+ph*0.6), 2, gfx.Fade(th.Good, 1-ph))
 			case model.FXShieldHit:
-				cv.StrokeHex(px, py, hex*1.1, 2, gfx.Fade(th.Info, 1-ph))
+				art.TileStroke(cv, px, py, hex*1.1, 2, gfx.Fade(th.Info, 1-ph))
 				cv.Glow(px, py, hex*1.4, gfx.Fade(th.Info, 0.5*(1-ph)))
 			case model.FXShotFlak, model.FXShotLance:
 				ox, oy := orbit()
@@ -396,8 +413,8 @@ func (g *Game) orbitLayout(rock *model.Rock, origin gfx.Pt, hex float32) []orbit
 			out = append(out, orbitShip{
 				fleet: fl.ID, owner: fl.Owner, kind: fl.Ships[i].Kind,
 				x:       origin.X + radius*float32(math.Cos(a)),
-				y:       origin.Y + radius*float32(math.Sin(a)),
-				heading: float32(a + math.Pi/2),
+				y:       origin.Y + radius*float32(math.Sin(a))*art.Tilt,
+				heading: float32(math.Atan2(math.Cos(a)*art.Tilt, -math.Sin(a))),
 			})
 			n++
 		}

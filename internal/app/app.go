@@ -374,11 +374,12 @@ func (g *Game) fitRock() {
 	if r == nil {
 		return
 	}
-	h := g.a.in.H - topH
-	if h <= 0 {
-		h = 900 - topH
+	w, h := g.a.in.W-paletteW-inspectorW, g.a.in.H-topH
+	if w <= 0 || h <= 0 {
+		w, h = 1600-paletteW-inspectorW, 900-topH
 	}
-	g.scam.hex = max(minHex+3, min(24, (h/2-24)/(orbitRing(r)*1.732)))
+	ring := orbitRing(r) * 1.732
+	g.scam.hex = max(minHex+3, min(30, (w/2-24)/ring, (h/2-30)/(ring*art.Tilt)))
 }
 
 // orbitRing is the radius, in hex widths, of the ring on which ships in orbit
@@ -389,8 +390,8 @@ func (g *Game) centerOnKeystone() {
 	g.scam.off = gfx.Pt{}
 	if r := g.cur(); r != nil {
 		if ks := r.Keystone(); ks != nil {
-			p := model.HexToPixel(ks.Hex, float64(g.scam.hex))
-			g.scam.off = gfx.P(-float32(p.X), -float32(p.Y))
+			p := art.HexPos(gfx.Pt{}, ks.Hex, g.scam.hex)
+			g.scam.off = gfx.P(-p.X, -p.Y)
 		}
 	}
 }

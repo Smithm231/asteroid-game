@@ -381,6 +381,25 @@ func (b *brain) attack() {
 	if float64(len(armed)) < 0.8*b.defenceOf(target) && !allIn {
 		return
 	}
+	// Send only as many ships as the Fuel on hand can launch.
+	fuel := base.Colony.Stock[model.Fuel]
+	perU, dist := 0.0, w.RockDist(base.ID, target.ID)
+	keep := 0
+	for _, id := range armed {
+		s := g.Ship(id)
+		if s == nil || (perU+s.Def().FuelPerU)*dist > fuel {
+			break
+		}
+		perU += s.Def().FuelPerU
+		keep++
+	}
+	if keep < len(armed) {
+		if keep < (b.prof.waveSize+1)/2 {
+			b.st.Timers[tNextAttack] = w.Tick + model.SecondsToTicks(30) // wait for the Crackers
+			return
+		}
+		armed = armed[:keep]
+	}
 	if b.exec(model.AttackCmd(b.f, g.ID, armed, target.ID, b.prof.stance, b.prof.retreat)) == nil {
 		b.st.Wave++
 		b.st.TargetRock = target.ID

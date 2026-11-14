@@ -141,9 +141,14 @@ func (b *bpen) edges(m mat3, xy ...float32) {
 			continue
 		}
 		dx, dy = dx/l, dy/l
-		// Outward normal of a clockwise polygon is (dy, -dx).
+		// Outward normal of a clockwise polygon is (dy, -dx); the light is
+		// fixed on screen, so a turned frame turns the normal first.
 		nx, ny := sgn*dy, -sgn*dx
-		d := nx*lightX + ny*lightY
+		sx, sy := nx, ny
+		if b.turned {
+			sx, sy = nx*b.cos-ny*b.sin, nx*b.sin+ny*b.cos
+		}
+		d := sx*lightX + sy*lightY
 		var c gfx.Color
 		switch {
 		case d > 0.3:
@@ -166,26 +171,32 @@ func (b *bpen) slab(m mat3, h float32, xy ...float32) {
 	b.outline(inkLine, b.ow(), 1, xy...)
 }
 
-// block is slab for an axis-aligned rectangle; its edges are snapped to the
-// pixel grid, which keeps small buildings crisp.
+// block is slab for an axis-aligned rectangle. In an unturned frame every
+// edge, the outline and the bevels are placed on whole pixels, which keeps
+// small buildings crisp.
 func (b *bpen) block(m mat3, h, x, y, w, hh float32) {
 	if b.turned {
 		b.slab(m, h, x, y, x+w, y, x+w, y+hh, x, y+hh)
 		return
 	}
-	if h > 0 {
-		b.rect(x+h*shadowDX, y+h*shadowDY, w, hh, inkShadow)
-	}
+	s := canvasScale(b.cv)
 	o := b.ow()
-	bw := b.bw()
-	b.rect(x-o/2, y-o/2, w+o, hh+o, inkLine)
-	b.rect(x+o/2, y+o/2, w-o, hh-o, m.mid)
-	if w > 3*bw+o && hh > 3*bw+o {
-		b.rect(x+o/2, y+o/2, w-o, bw, m.hi)
-		b.rect(x+o/2, y+o/2, bw, hh-o, m.hi)
-		b.rect(x+o/2, y+hh-o/2-bw, w-o, bw, m.lo)
-		b.rect(x+w-o/2-bw, y+o/2, bw, hh-o, m.lo)
+	r := b.cv.SnapRect(gfx.R(b.ox+(x-o/2)*b.k, b.oy+(y-o/2)*b.k, (w+o)*b.k, (hh+o)*b.k))
+	op := max(1, roundf(o*b.k*s)) / s
+	bp := max(1, roundf(b.bw()*b.k*s)) / s
+	if h > 0 {
+		b.cv.FillRect(r.Translate(h*shadowDX*b.k, h*shadowDY*b.k), b.col(inkShadow))
 	}
+	b.cv.FillRect(r, b.col(m.mid))
+	in := r.Inset(op)
+	if in.W >= 3*bp && in.H >= 3*bp {
+		hi, lo := b.col(m.hi), b.col(m.lo)
+		b.cv.FillRect(gfx.R(in.X, in.Y, in.W-bp, bp), hi)
+		b.cv.FillRect(gfx.R(in.X, in.Y, bp, in.H-bp), hi)
+		b.cv.FillRect(gfx.R(in.X+bp, in.Bottom()-bp, in.W-bp, bp), lo)
+		b.cv.FillRect(gfx.R(in.Right()-bp, in.Y+bp, bp, in.H-bp), lo)
+	}
+	b.cv.StrokeRect(r, op, b.col(inkLine))
 }
 
 // Angles of the lit and shaded rims of a round shape.
@@ -229,9 +240,9 @@ func (b *bpen) pill(m mat3, h, x0, y0, x1, y1, r float32) {
 		b.circle(x0+sx, y0+sy, r, inkShadow)
 		b.circle(x1+sx, y1+sy, r, inkShadow)
 		if horizontal {
-			b.rect(x0+sx, y0-r+sy, x1-x0, 2*r, inkShadow)
+			b.quad(x0+sx, y0-r+sy, x1-x0, 2*r, inkShadow)
 		} else {
-			b.rect(x0-r+sx, y0+sy, 2*r, y1-y0, inkShadow)
+			b.quad(x0-r+sx, y0+sy, 2*r, y1-y0, inkShadow)
 		}
 	}
 	for pass := 0; pass < 2; pass++ {
@@ -242,20 +253,20 @@ func (b *bpen) pill(m mat3, h, x0, y0, x1, y1, r float32) {
 		b.circle(x0, y0, rr, c)
 		b.circle(x1, y1, rr, c)
 		if horizontal {
-			b.rect(x0, y0-rr, x1-x0, 2*rr, c)
+			b.quad(x0, y0-rr, x1-x0, 2*rr, c)
 		} else {
-			b.rect(x0-rr, y0, 2*rr, y1-y0, c)
+			b.quad(x0-rr, y0, 2*rr, y1-y0, c)
 		}
 	}
 	// A lying cylinder is lightest along its upper-left flank and darkest
 	// along the opposite one.
 	bw := max(r*0.3, b.bw())
 	if horizontal {
-		b.rect(x0, y0-r+o/2+bw*0.5, x1-x0, bw, m.hi)
-		b.rect(x0, y0+r-o/2-bw*1.3, x1-x0, bw, m.lo)
+		b.quad(x0, y0-r+o/2+bw*0.5, x1-x0, bw, m.hi)
+		b.quad(x0, y0+r-o/2-bw*1.3, x1-x0, bw, m.lo)
 	} else {
-		b.rect(x0-r+o/2+bw*0.5, y0, bw, y1-y0, m.hi)
-		b.rect(x0+r-o/2-bw*1.3, y0, bw, y1-y0, m.lo)
+		b.quad(x0-r+o/2+bw*0.5, y0, bw, y1-y0, m.hi)
+		b.quad(x0+r-o/2-bw*1.3, y0, bw, y1-y0, m.lo)
 	}
 }
 

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install graphics and audio headers
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
+      - run: go vet ./...
+      - run: go test ./...
+      - name: Self-play soak
+        run: go run ./cmd/driftsim -runs 4 -cycles 60 -quiet
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test the rules on Windows
+        run: go test ./internal/model/... ./internal/sim/... ./internal/ai/... ./internal/save/...
+      - name: Build Drifthold.exe
+        shell: pwsh
+        run: scripts\build-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Drifthold-windows-x64
+          path: dist/Drifthold.exe

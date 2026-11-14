@@ -97,7 +97,8 @@ func summary(w *model.World) string {
 			parts = append(parts, fmt.Sprintf("%s:dead@%d", tag, model.CycleOfTick(f.EliminatedTick)))
 			continue
 		}
-		parts = append(parts, fmt.Sprintf("%s:c%d p%.0f t%d s%d", tag, w.ColonyCount(f.ID), w.TotalPop(f.ID), f.TechCount(), w.ShipCount(f.ID)))
+		parts = append(parts, fmt.Sprintf("%s:c%d p%.0f t%d s%d w%d k%d/%d", tag, w.ColonyCount(f.ID), w.TotalPop(f.ID), f.TechCount(),
+			w.ShipCount(f.ID), f.AI.Wave, f.Stats.ShipsDestroyed, f.Stats.ShipsLost))
 	}
 	return strings.Join(parts, " | ")
 }

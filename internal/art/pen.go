@@ -127,6 +127,12 @@ func (p *pen) rect(x, y, w, h float32, c gfx.Color) {
 	p.cv.FillRect(gfx.R(p.ox+x*p.k, p.oy+y*p.k, w*p.k, h*p.k), p.col(c))
 }
 
+// quad fills an axis-aligned rectangle without pixel snapping, for parts
+// that must meet anti-aliased shapes exactly.
+func (p *pen) quad(x, y, w, h float32, c gfx.Color) {
+	p.poly(c, x, y, x+w, y, x+w, y+h, x, y+h)
+}
+
 // rectC is rect given by centre and half extents.
 func (p *pen) rectC(cx, cy, hw, hh float32, c gfx.Color) {
 	p.rect(cx-hw, cy-hh, 2*hw, 2*hh, c)

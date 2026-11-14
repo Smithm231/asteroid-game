@@ -206,6 +206,10 @@ func (b *brain) wants(v *view) []want {
 		(v.home || c.Stock[model.Fuel] < 30) {
 		staffed(model.Cracker)
 	}
+	// A fleet that cannot launch is no fleet: keep the Fuel coming.
+	if v.home && v.count[model.Cracker] == 1 && c.Stock[model.Fuel] < 120 && c.Stock[model.Ice] > 220 && b.w.ShipCount(b.f) >= 5 {
+		staffed(model.Cracker)
+	}
 	flak := 1
 	if v.home {
 		flak = b.prof.flakHome
